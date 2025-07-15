@@ -32,9 +32,9 @@ It's incredibly simple to set up your first shortcut:
 
 1.  **[Download `WarpKey.zip`](https://github.com/your-github-username/WarpKey/releases/latest)** from the latest release.
 
-2.  Unzip the file and open `WarpKey.app` from any location you like.
+2.  Unzip the file. For the best experience, we recommend dragging **`WarpKey.app`** into your `/Applications` folder.
 
-3.  When prompted, **you must grant Accessibility permissions** for the hotkeys to work.
+3.  Launch WarpKey. You must **grant Accessibility permissions** when prompted for the hotkeys to work.
 
 ---
 
