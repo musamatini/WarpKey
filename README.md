@@ -28,18 +28,25 @@ It's incredibly simple to set up your first shortcut:
 4.  WarpKey's settings window will instantly pop up, showing your newly assigned shortcut. Here, you can easily switch between "Hide/Unhide Mode" and "Cycle Mode" for that specific app.
 5.  To use your new blazing-fast shortcut, simply press **`Right Command` + `[Your Assigned Letter]`** from anywhere on your Mac! Watch your apps respond instantly!
 
-## 🛠️ Installation
+## 🚀 Installation
 
-WarpKey is still in its early stages of development. Currently, to get WarpKey running on your machine:
+1.  **[Download `WarpKey.zip`](https://github.com/your-github-username/WarpKey/releases/latest)** from the latest release.
 
-1.  **Clone the Repository:**
-    ```bash
-    git clone https://github.com/your-github-username/WarpKey.git
-    ```
-2.  **Open in Xcode:** Navigate to the cloned directory and open the `WarpKey.xcodeproj` file in Xcode.
-3.  **Build and Run:** Select your Mac as the target device and hit the 'Run' button (▶️).
+2.  Unzip the file and open `WarpKey.app` from any location you like.
 
-A pre-compiled `.app` release for easier installation will be available soon! Stay tuned!
+3.  When prompted, **you must grant Accessibility permissions** for the hotkeys to work.
+
+---
+
+### For Developers
+
+<details>
+  <summary>Build from Source</summary>
+  
+  1.  Clone the repo: `git clone https://github.com/your-github-username/WarpKey.git`
+  2.  Open `WarpKey.xcodeproj` in Xcode and run the project.
+</details>
+
 
 ## ❤️ A Note from the Developer
 
