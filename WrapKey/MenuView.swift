@@ -390,7 +390,7 @@ struct FooterView: View {
     var onShowHelp: () -> Void
     private let donationURL = URL(string: "https://www.buymeocoffee.com/musamatini")!
 
-    private let showDebugWelcomeButton = true
+    private let showDebugWelcomeButton = false
 
     var body: some View {
         VStack(spacing: 10) {
