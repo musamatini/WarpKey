@@ -1,20 +1,13 @@
 # 🎉 WarpKey: Your Mac's Productivity Power-Up! 🚀
 
-### Blazing-Fast App Switching & Window Management at Your Fingertips.
+### Blazing-Fast App Switching & Window Management.
 
-Welcome to WarpKey, a sleek and intuitive macOS utility designed to revolutionize how you interact with your applications. Forget hunting through your Dock—assign a unique hotkey to an app to instantly launch it or bring it to the front. Press the hotkey again to hide the app, clearing your workspace in a flash. For power users, WarpKey can also cycle through all open windows of a single application, making it effortless to find exactly what you need. It runs discreetly from your menu bar and starts at login, so your shortcuts are always ready.
+![Release](https://img.shields.io/github/v/release/your-username/WarpKey?style=for-the-badge)
+![Platform](https://img.shields.io/badge/platform-macOS-blue?style=for-the-badge)
+![Swift](https://img.shields.io/badge/Swift-5.7-orange?style=for-the-badge)
+![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)
 
-This project is a labor of love, built with 💚 SwiftUI, and it represents my journey as a junior developer diving deep into the world of open-source macOS app development. Your feedback and support mean the world!
-
-## 🚀 Getting Started with WarpKey
-
-It's incredibly simple to set up your first shortcut:
-
-1.  **Launch WarpKey.** (You can access its settings from the menu bar icon).
-2.  Bring the application you wish to assign a shortcut to into focus (click on its window or icon).
-3.  Press **`Right Option` + `Right Command` + `[Your Desired Letter]`** on your keyboard. For example, to assign 'F' to Finder, you'd press `Right Option + Right Command + F`.
-4.  WarpKey's settings window will pop up, showing your new shortcut. Here, you can choose between "Hide/Unhide" or "Cycle Windows" mode for that app.
-5.  To use your new shortcut, simply press **`Right Command` + `[Your Assigned Letter]`** from anywhere on your Mac and watch your app respond instantly!
+WarpKey is a lightweight macOS utility that lets you launch, hide, and switch between your most-used applications with custom keyboard shortcuts. It's designed to be blazing-fast and intuitive, running discreetly from your menu bar to keep your workflow smooth and your desktop clean.
 
 ## 🚀 Installation
 
@@ -22,33 +15,33 @@ It's incredibly simple to set up your first shortcut:
 2.  Unzip the file and drag **`WarpKey.app`** into your `/Applications` folder.
 3.  Launch WarpKey. You must **grant Accessibility permissions** when prompted for the hotkeys to work.
 
----
+## ✨ How It Works
 
-### For Developers
+1.  **Focus** the app you want to assign a shortcut to.
+2.  **Set the shortcut** by pressing `Right Option + Right Command + [Letter]`.
+3.  **Use the shortcut** anytime by pressing `Right Command + [Letter]`.
 
-<details>
-  <summary>Build from Source</summary>
-  
-  1.  Clone the repo: `git clone https://github.com/your-github-username/WarpKey.git`
-  2.  Open `WarpKey.xcodeproj` in Xcode and run the project.
-</details>
+That's it! You can manage your shortcuts and their modes (Hide/Unhide vs. Cycle Windows) from the WarpKey settings window, accessible from the menu bar.
 
-## ❤️ A Note from the Developer
+## 👨‍💻 For Developers (Build from Source)
 
-I'm **Musa Matini**, and WarpKey is a passion project marking my exciting early steps as a junior developer in the open-source community. Building this app has been an incredible learning experience, and I'm genuinely thrilled to share it with you all.
-
-Please bear with me as this project is in its early stages; mistakes can happen, and I'm always eager to learn, improve, and refine! Your patience, feedback, and support are truly appreciated as I navigate this journey.
-
-Feel free to connect with me or see what else I'm working on at my personal website:
-🌐 **[https://musa.matini.link]**
+1.  Clone the repo: `git clone https://github.com/your-github-username/WarpKey.git`
+2.  Open `WarpKey.xcodeproj` in Xcode and run the project.
 
 ## 🤝 Contribution & Support
 
-WarpKey is an open-source project, and I'm incredibly excited to see it grow with the community's help!
+WarpKey is an open-source project, and community help is warmly welcomed!
 
-*   **Feedback & Ideas:** Your insights are invaluable! If you encounter any bugs, have feature requests, or just want to share your thoughts, please don't hesitate to open an [issue](https://github.com/your-username/WarpKey/issues) here on GitHub.
-*   **Contributing Code:** Want to jump in and contribute? Pull requests are warmly welcomed! Whether it's a small fix, a new feature, or refactoring, every contribution helps make WarpKey better.
+*   **Feedback & Ideas:** If you find a bug or have a feature request, please open an [issue](https://github.com/your-username/WarpKey/issues).
+*   **Contributing Code:** Pull requests are always appreciated! Every contribution helps make WarpKey better.
+
+## ❤️ A Note from the Developer
+
+I'm **Musa Matini**, and WarpKey is a passion project marking my exciting early steps as a junior developer. Building this has been an incredible learning experience, and I'm genuinely thrilled to share it.
+
+Your patience, feedback, and support are truly appreciated as I navigate this journey. Feel free to connect with me at my personal website:
+🌐 **[https://musa.matini.link]**
 
 ---
 
-Thank you for checking out WarpKey! I hope it brings a new level of speed and joy to your Mac usage. Happy shortcutting!
+Thank you for checking out WarpKey! Happy shortcutting!
