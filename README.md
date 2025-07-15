@@ -2,7 +2,7 @@
 
 ### Blazing-Fast App Switching & Window Management.
 
-![Release](https://img.shields.io/github/v/release/your-username/WarpKey?style=for-the-badge)
+![Release](https://img.shields.io/github/v/release/musamatini/WarpKey?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/platform-macOS-blue?style=for-the-badge)
 ![Swift](https://img.shields.io/badge/Swift-5.7-orange?style=for-the-badge)
 ![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)
