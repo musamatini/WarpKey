@@ -2,10 +2,13 @@
 
 ### Blazing-Fast App Switching & Window Management.
 
-![Release](https://img.shields.io/github/v/release/musamatini/WrapKey?style=for-the-badge)
-![Platform](https://img.shields.io/badge/platform-macOS-blue?style=for-the-badge)
-![Swift](https://img.shields.io/badge/Swift-5-orange?style=for-the-badge)
-![License](https://img.shields.io/github/license/musamatini/WrapKey?style=for-the-badge)
+![Platform](https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white)
+![Made with Swift](https://img.shields.io/badge/Made%20with-Swift-F05138?style=flat-square&logo=Swift&logoColor=white)
+![Release](https://img.shields.io/github/v/release/musamatini/WrapKey?style=flat-square&logo=github&color=blue)
+![Downloads](https://img.shields.io/github/downloads/musamatini/WrapKey/total?style=flat-square&logo=arrow-down-circle&color=brightgreen)
+![Stars](https://img.shields.io/github/stars/musamatini/WrapKey?style=flat-square&logo=star&color=gold)
+![License](https://img.shields.io/github/license/musamatini/WrapKey?style=flat-square&color=lightgrey)
+
 
 WrapKey is a lightweight macOS utility that lets you launch, hide, and switch between your most-used applications with custom keyboard shortcuts. It's designed to be blazing-fast and intuitive, running discreetly from your menu bar to keep your workflow smooth and your desktop clean.
 
