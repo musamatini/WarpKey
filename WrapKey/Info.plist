@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSAccessibilityUsageDescription</key>
+	<string>RCMD needs permission to control other applications in order to assign, show, and hide them with your custom hotkeys.</string>
+	<key>NSUserLoginItemUsageDescription</key>
+	<string>RCMD needs to run automatically at login to keep your hotkeys available.</string>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>RCMD sends notifications to confirm when a new hotkey has been successfully assigned.</string>
+</dict>
+</plist>
