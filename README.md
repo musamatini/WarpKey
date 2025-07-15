@@ -1,3 +1,5 @@
+![Banner]([https://raw.githubusercontent.com/YourUsername/YourRepoName/main/assets/banner.png](https://github.com/musamatini/WrapKey/blob/main/banner.png))
+
 # 🎉 WrapKey: Your Mac's Productivity Power-Up! 🚀
 
 ### Blazing-Fast App Switching & Window Management.
