@@ -1,33 +1,26 @@
+// WarpKeyApp.swift
 import SwiftUI
 
 @main
 struct WarpKeyApp: App {
-    @StateObject private var hotKeyManager = AppHotKeyManager()
-    @StateObject private var launchManager = LaunchAtLoginManager()
-    
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    
+    @StateObject private var launchManager = LaunchAtLoginManager()
     @Environment(\.openWindow) var openWindow
 
     var body: some Scene {
-        let _ = {
-            // Assign the openWindow action to the delegate. This is still important
-            // for later programmatic window opening (e.g., from notifications).
-            appDelegate.openWindowAction = openWindow
-        }()
+        let settings = appDelegate.settings
+        let hotKeyManager = appDelegate.hotKeyManager
+        let _ = { appDelegate.openWindowAction = openWindow }()
 
         Window("WarpKey", id: "main-menu") {
+            // Pass the single, correct instances to our views.
             MenuView(manager: hotKeyManager, launchManager: launchManager)
-                // ✅ Provide settings as an EnvironmentObject
-                .environmentObject(appDelegate.settings)
-                // ✅ WindowAccessor is now responsible for initial visibility based on settings
-                .background(WindowAccessor()) // No need for expectedContentSize here
+                .environmentObject(settings)
+                .background(WindowAccessor()) // Assuming WindowAccessor is a helper you have
         }
         .windowStyle(.hiddenTitleBar)
-        .windowResizability(.contentSize) // Let SwiftUI manage the window size based on content
+        .windowResizability(.contentSize)
         .defaultPosition(.center)
-        .commands {
-            CommandGroup(replacing: .windowList) {} // Hide default Window menu items
-        }
+        .commands { CommandGroup(replacing: .windowList) {} }
     }
-}
+} 

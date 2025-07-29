@@ -1,66 +1,147 @@
-// AppHotKeyManager.swift
-
 import SwiftUI
 import AppKit
 import CoreGraphics
+import Combine
 
-// --- Data model for each shortcut ---
+// MARK: - Shortcut Target Definitions
+enum ShortcutTarget: Codable, Hashable {
+    case app(bundleId: String)
+    case url(String)
+    case file(String)
+    case script(command: String, runsInTerminal: Bool)
+    case shortcut(name: String)
+    
+    var category: ShortcutCategory {
+        switch self {
+        case .app: .app
+        case .url: .url
+        case .file: .file
+        case .script: .script
+        case .shortcut: .shortcut
+        }
+    }
+}
+
 struct ShortcutConfiguration: Codable, Hashable {
-    var bundleId: String
+    var target: ShortcutTarget
     var behavior: Behavior = .activateOrHide
 
-    // ✅ CHANGED: "Activate" is now "Hide/Unhide" for clarity.
     enum Behavior: String, Codable, CaseIterable, Hashable {
         case activateOrHide = "Hide/Unhide"
         case cycleWindows = "Cycle"
     }
 }
 
-enum ModifierKeyCode {
-    static let rightCommand: CGKeyCode = 54
-    static let leftCommand: CGKeyCode = 55
-    static let rightOption: CGKeyCode = 61
-    static let leftOption: CGKeyCode = 58
+// MARK: - Modifier Key Definition
+struct ModifierKey: Codable, Equatable, Hashable {
+    let keyCode: CGKeyCode
+    let displayName: String
+    let isTrueModifier: Bool
+
+    var flagMask: CGEventFlags {
+        guard isTrueModifier else { return [] }
+        switch keyCode {
+        case 55, 54: return .maskCommand
+        case 58, 61: return .maskAlternate
+        case 56, 60: return .maskShift
+        case 59, 62: return .maskControl
+        case 63: return .maskSecondaryFn
+        default: return []
+        }
+    }
+    
+    var symbol: String {
+        if displayName.lowercased().contains("command") { return "⌘" }
+        if displayName.lowercased().contains("option") { return "⌥" }
+        if displayName.lowercased().contains("shift") { return "⇧" }
+        if displayName.lowercased().contains("control") { return "⌃" }
+        if displayName.lowercased().contains("function") { return "fn" }
+        return displayName
+    }
+    
+    private init(keyCode: CGKeyCode, displayName: String, isTrueModifier: Bool) {
+        self.keyCode = keyCode
+        self.displayName = displayName
+        self.isTrueModifier = isTrueModifier
+    }
+    
+    static func from(keyCode: CGKeyCode) -> ModifierKey {
+        let trueModifierDisplayNames: [CGKeyCode: String] = [
+            55: "Left Command", 54: "Right Command",
+            58: "Left Option", 61: "Right Option",
+            56: "Left Shift", 60: "Right Shift",
+            59: "Left Control", 62: "Right Control",
+            63: "Function (fn)"
+        ]
+        
+        if let displayName = trueModifierDisplayNames[keyCode] {
+            return ModifierKey(keyCode: keyCode, displayName: displayName, isTrueModifier: true)
+        } else {
+            let displayName = KeyboardLayout.character(for: keyCode) ?? "Key \(keyCode)"
+            return ModifierKey(keyCode: keyCode, displayName: displayName, isTrueModifier: false)
+        }
+    }
 }
 
+// MARK: - HotKey Manager
 class AppHotKeyManager: ObservableObject {
-    
-    @Published var assignments: [CGKeyCode: ShortcutConfiguration] = [:]
-    private var lastCycledWindowIndex: [pid_t: Int] = [:]
-    private var isRightCommandDown = false
-    private var isRightOptionDown = false
-    private var activationWorkItem: DispatchWorkItem?
-    private var eventTap: CFMachPort?
-    private let assignmentsKey = "RCMD_AppAssignments_v3"
+    // MARK: - Published Properties
+    @Published var isListeningForNewModifier: Bool = false
+    @Published var modifierToChange: (category: ShortcutCategory, type: ModifierType)? = nil
+    @Published var isListeningForAssignment = false
+    @Published var conflictingAssignmentIDs: Set<UUID> = []
 
-    init() {
-        print("[DEBUG] AppHotKeyManager initializing...")
-        loadAssignments()
-        
-        NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { _ in
-            self.stopMonitoring()
-        }
-        
+    // MARK: - Private Properties
+    private var targetForAssignment: ShortcutTarget?
+    private var assignmentIDForReassignment: UUID?
+    private var pressedModifierKeys = Set<CGKeyCode>()
+    private var pressedNonModifierKeys = Set<CGKeyCode>()
+    private let modifierKeyToFlagMap: [CGKeyCode: CGEventFlags] = [
+        55: .maskCommand, 54: .maskCommand,
+        58: .maskAlternate, 61: .maskAlternate,
+        56: .maskShift, 60: .maskShift,
+        59: .maskControl, 62: .maskControl,
+        63: .maskSecondaryFn
+    ]
+    private var lastCycledWindowIndex: [pid_t: Int] = [:]
+    private var eventTap: CFMachPort?
+    private var settingsCancellable: AnyCancellable?
+    private var previousConflictingAssignmentIDs: Set<UUID> = []
+    var settings: SettingsManager
+
+    // MARK: - Initialization
+    init(settings: SettingsManager) {
+        self.settings = settings
+        settingsCancellable = settings.$profiles
+            .debounce(for: .milliseconds(100), scheduler: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.checkForConflicts()
+                self?.restartMonitoring()
+            }
+        NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { _ in self.stopMonitoring() }
         startMonitoring()
+        checkForConflicts()
     }
     
     deinit {
-        print("[DEBUG] AppHotKeyManager deinitializing...")
         stopMonitoring()
+    }
+    
+    // MARK: - Event Monitoring
+    private func restartMonitoring() {
+        stopMonitoring()
+        startMonitoring()
     }
 
     private func startMonitoring() {
-        if !AccessibilityManager.checkPermissions() {
-            print("[WARN] Accessibility permissions not granted. App may not function correctly.")
-        }
+        if eventTap != nil { return }
+        if !AccessibilityManager.checkPermissions() { print("[WARN] Accessibility permissions not granted.") }
         let eventTapCallback: CGEventTapCallBack = { (proxy, type, event, refcon) -> Unmanaged<CGEvent>? in
-            if let manager = refcon.map({ Unmanaged<AppHotKeyManager>.fromOpaque($0).takeUnretainedValue() }) {
-                return manager.handle(proxy: proxy, type: type, event: event)
-            }
-            return Unmanaged.passUnretained(event)
+            guard let manager = refcon.map({ Unmanaged<AppHotKeyManager>.fromOpaque($0).takeUnretainedValue() }) else { return Unmanaged.passUnretained(event) }
+            return manager.handle(proxy: proxy, type: type, event: event)
         }
         let selfAsUnsafeMutableRawPointer = Unmanaged.passUnretained(self).toOpaque()
-        let eventsToMonitor: CGEventMask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.flagsChanged.rawValue)
+        let eventsToMonitor: CGEventMask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue) | (1 << CGEventType.flagsChanged.rawValue)
         eventTap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap, eventsOfInterest: eventsToMonitor, callback: eventTapCallback, userInfo: selfAsUnsafeMutableRawPointer)
         if let tap = eventTap {
             let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
@@ -79,208 +160,304 @@ class AppHotKeyManager: ObservableObject {
     }
     
     private func handle(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
+        if isListeningForNewModifier {
+            if type == .keyDown || type == .flagsChanged { NotificationCenter.default.post(name: .keyPressEvent, object: event); return nil }
+            return nil
+        }
+        
+        if isListeningForAssignment {
+            if type == .keyDown { completeAssignment(event: event); return nil }
+            return nil
+        }
+        
+        let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
+        
         switch type {
         case .flagsChanged:
-            let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
-            handleModifierKey(keyCode: keyCode, flags: event.flags)
-        case .keyDown:
-            if isRightCommandDown {
-                let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
-                if isRightOptionDown {
-                    assign(keyCode: keyCode)
-                    return nil
-                } else {
-                    if handleActivation(keyCode: keyCode) {
-                        return nil
-                    }
-                }
+            if let flag = modifierKeyToFlagMap[keyCode] {
+                if event.flags.contains(flag) { pressedModifierKeys.insert(keyCode) }
+                else { pressedModifierKeys.remove(keyCode) }
             }
+        case .keyDown: pressedNonModifierKeys.insert(keyCode)
+        case .keyUp: pressedNonModifierKeys.remove(keyCode)
         default: break
         }
+        
+        let allTriggers = Set(settings.currentProfile.wrappedValue.triggerModifiers.values)
+        let secondary = settings.currentProfile.wrappedValue.secondaryModifier
+        if allTriggers.contains(where: { !$0.isTrueModifier && $0.keyCode == keyCode }) { return nil }
+        if !secondary.isTrueModifier && secondary.keyCode == keyCode { return nil }
+        
+        if type == .keyDown {
+            if isSecondaryPressed() && isTriggerPressed(for: .app) {
+                assignAppShortcut(keyCode: keyCode)
+                return nil
+            }
+            
+            var activated = false
+            let assignmentsForKeyCode = settings.currentProfile.wrappedValue.assignments.filter { $0.keyCode == keyCode }
+            
+            for assignment in assignmentsForKeyCode {
+                if isTriggerPressed(for: assignment.configuration.target.category) {
+                    _ = handleActivation(assignment: assignment)
+                    activated = true
+                }
+            }
+            
+            if activated {
+                return nil
+            }
+        }
+
         return Unmanaged.passUnretained(event)
     }
 
-    private func handleModifierKey(keyCode: CGKeyCode, flags: CGEventFlags) {
-        switch keyCode {
-        case ModifierKeyCode.rightCommand: isRightCommandDown = flags.contains(.maskCommand)
-        case ModifierKeyCode.rightOption: isRightOptionDown = flags.contains(.maskAlternate)
-        default: break
+    // MARK: - State Checkers
+    private func isTriggerPressed(for category: ShortcutCategory) -> Bool {
+        guard let trigger = settings.currentProfile.wrappedValue.triggerModifiers[category] else { return false }
+        return trigger.isTrueModifier ? pressedModifierKeys.contains(trigger.keyCode) : pressedNonModifierKeys.contains(trigger.keyCode)
+    }
+    
+    private func isSecondaryPressed() -> Bool {
+        let secondary = settings.currentProfile.wrappedValue.secondaryModifier
+        return secondary.isTrueModifier ? pressedModifierKeys.contains(secondary.keyCode) : pressedNonModifierKeys.contains(secondary.keyCode)
+    }
+
+    // MARK: - Modifier & Assignment Logic
+    func setNewModifierKey(_ newModifierKey: ModifierKey, for category: ShortcutCategory, type: ModifierType) {
+        if type == .trigger {
+            if newModifierKey == settings.currentProfile.wrappedValue.secondaryModifier {
+                return
+            }
+            settings.currentProfile.wrappedValue.triggerModifiers[category] = newModifierKey
+        } else {
+            if settings.currentProfile.wrappedValue.triggerModifiers.values.contains(newModifierKey) {
+                return
+            }
+            settings.currentProfile.wrappedValue.secondaryModifier = newModifierKey
         }
     }
     
-    private func assign(keyCode: CGKeyCode) {
-        DispatchQueue.main.async {
-            guard let frontmostApp = NSWorkspace.shared.frontmostApplication,
-                  let bundleId = frontmostApp.bundleIdentifier else { return }
-            if bundleId == Bundle.main.bundleIdentifier { return }
-            
-            self.assignments[keyCode] = ShortcutConfiguration(bundleId: bundleId)
-            self.saveAssignments()
-            
-            let appName = self.getAppName(for: bundleId) ?? "The App"
-            let keyStr = self.keyString(for: keyCode)
-            NotificationManager.shared.sendAssignmentNotification(appName: appName, keyString: keyStr)
-            print("[ACTION] Assigned \(appName) to key \(keyStr).")
-        }
+    func listenForNewAssignment(target: ShortcutTarget, assignmentID: UUID? = nil) {
+        pressedModifierKeys.removeAll()
+        pressedNonModifierKeys.removeAll()
+        targetForAssignment = target
+        assignmentIDForReassignment = assignmentID
+        isListeningForAssignment = true
     }
+    
+    private func completeAssignment(event: CGEvent) {
+        let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
+        let allTriggers = Set(settings.currentProfile.wrappedValue.triggerModifiers.values)
+        let secondary = settings.currentProfile.wrappedValue.secondaryModifier
+        
+        if allTriggers.map({ $0.keyCode }).contains(keyCode) || keyCode == secondary.keyCode {
+            NotificationManager.shared.sendNotification(title: "Invalid Key", body: "You cannot assign a modifier key as a shortcut.")
+            isListeningForAssignment = false; return
+        }
 
-    private func handleActivation(keyCode: CGKeyCode) -> Bool {
-        guard let config = assignments[keyCode] else {
-            return false
+        guard let target = targetForAssignment else { isListeningForAssignment = false; return }
+        
+        if let assignmentID = assignmentIDForReassignment {
+            settings.updateAssignment(id: assignmentID, newKeyCode: keyCode)
+        } else {
+            let newAssignment = Assignment(keyCode: keyCode, configuration: ShortcutConfiguration(target: target))
+            settings.addAssignment(newAssignment)
         }
         
-        activationWorkItem?.cancel()
-
-        let newWorkItem = DispatchWorkItem {
-            guard let targetApp = NSRunningApplication.runningApplications(withBundleIdentifier: config.bundleId).first else {
-                print("[ACTION] App \(config.bundleId) not running. Launching.")
-                self.launchAndActivate(bundleId: config.bundleId)
-                return
-            }
-            
-            switch config.behavior {
-            case .activateOrHide:
-                self.activateOrHide(app: targetApp)
-            case .cycleWindows:
-                self.cycleWindows(for: targetApp)
-            }
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: newWorkItem)
-        self.activationWorkItem = newWorkItem
-        return true
+        let newTrigger = settings.triggerModifier(for: target)
+        NotificationManager.shared.sendNotification(title: "Shortcut Set!", body: "\(newTrigger.symbol) + \(keyString(for: keyCode)) is ready.")
+        isListeningForAssignment = false
+        targetForAssignment = nil
+        assignmentIDForReassignment = nil
     }
 
+    private func assignAppShortcut(keyCode: CGKeyCode) {
+        guard let frontmostApp = NSWorkspace.shared.frontmostApplication,
+              let bundleId = frontmostApp.bundleIdentifier,
+              bundleId != Bundle.main.bundleIdentifier else { return }
+        
+        let target = ShortcutTarget.app(bundleId: bundleId)
+        
+        let newAssignment = Assignment(keyCode: keyCode, configuration: ShortcutConfiguration(target: target))
+        settings.addAssignment(newAssignment)
+        let appName = getAppName(for: bundleId) ?? "The App"
+        NotificationManager.shared.sendAssignmentNotification(appName: appName, keyString: keyString(for: keyCode))
+    }
+    
+    private func checkForConflicts() {
+        var hotkeys: [String: [UUID]] = [:]
+        for assignment in settings.currentProfile.wrappedValue.assignments {
+            let trigger = settings.triggerModifier(for: assignment.configuration.target)
+            let hotkeyID = "\(trigger.keyCode)-\(assignment.keyCode)"
+            hotkeys[hotkeyID, default: []].append(assignment.id)
+        }
+        
+        let currentConflicts = hotkeys.values.filter { $0.count > 1 }.flatMap { $0 }
+        self.conflictingAssignmentIDs = Set(currentConflicts)
+
+        // Important: This is where new conflicts are detected and notified.
+        let newlyConflictingIDs = self.conflictingAssignmentIDs.subtracting(previousConflictingAssignmentIDs)
+
+        if !newlyConflictingIDs.isEmpty {
+            let allAssignments = settings.currentProfile.wrappedValue.assignments
+            var conflictingHotkeys: [String: [String]] = [:]
+
+            for id in newlyConflictingIDs {
+                guard let assignment = allAssignments.first(where: { $0.id == id }) else { continue }
+
+                let trigger = settings.triggerModifier(for: assignment.configuration.target)
+                let key = keyString(for: assignment.keyCode)
+                let hotkeyString = "\(trigger.symbol) + \(key)"
+                let assignmentName = getDisplayName(for: assignment.configuration.target) ?? "Unnamed Shortcut"
+
+                conflictingHotkeys[hotkeyString, default: []].append(assignmentName)
+            }
+
+            for (hotkey, names) in conflictingHotkeys {
+                if names.count > 1 {
+                    let body = "Hotkey \(hotkey) is now used for: \(names.joined(separator: ", "))."
+                    NotificationManager.shared.sendNotification(title: "Shortcut Conflict Detected", body: body)
+                }
+            }
+        }
+        
+        self.previousConflictingAssignmentIDs = self.conflictingAssignmentIDs
+    }
+
+    // MARK: - Shortcut Activation
+    private func handleActivation(assignment: Assignment) -> Bool {
+        let config = assignment.configuration
+        let workItem = DispatchWorkItem {
+            NotificationCenter.default.post(name: .shortcutActivated, object: nil)
+            switch config.target {
+            case .app(let bundleId): self.handleAppActivation(bundleId: bundleId, behavior: config.behavior)
+            case .url(let urlString): if let url = URL(string: urlString) { NSWorkspace.shared.open(url) }
+            case .file(let path): NSWorkspace.shared.open(URL(fileURLWithPath: path))
+            case .script(let command, let runsInTerminal): self.runScript(command: command, runsInTerminal: runsInTerminal)
+            case .shortcut(let name): self.runShortcut(name: name)
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: workItem)
+        return true
+    }
+    
+    private func handleAppActivation(bundleId: String, behavior: ShortcutConfiguration.Behavior) {
+        guard let targetApp = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).first else {
+            launchAndActivate(bundleId: bundleId)
+            return
+        }
+        switch behavior {
+        case .activateOrHide: activateOrHide(app: targetApp)
+        case .cycleWindows: cycleWindows(for: targetApp)
+        }
+    }
+    
     private func activateOrHide(app: NSRunningApplication) {
         if app.isActive {
-            print("[ACTION] App \(app.bundleIdentifier ?? "") is frontmost. Hiding.")
             app.hide()
         } else {
-            print("[ACTION] App \(app.bundleIdentifier ?? "") is not frontmost. Activating.")
-            forceActivate(app: app)
+            app.unhide()
+            app.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
         }
     }
     
     private func cycleWindows(for app: NSRunningApplication) {
-        let pid = app.processIdentifier
-        print("[ACTION] Cycling windows for \(app.bundleIdentifier ?? "") (PID: \(pid))")
-
-        if !app.isActive {
-            app.unhide()
-            app.activate(options: .activateAllWindows)
-        }
-
-        let appElement = AXUIElementCreateApplication(pid)
-
+        if !app.isActive { app.unhide(); app.activate(options: .activateAllWindows) }
+        
+        let appElement = AXUIElementCreateApplication(app.processIdentifier)
         var allWindows: CFTypeRef?
         guard AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &allWindows) == .success,
               let windowList = allWindows as? [AXUIElement], !windowList.isEmpty else {
-            print("[CYCLE] No windows found or accessible. Activating instead.")
-            forceActivate(app: app)
+            app.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
             return
         }
-
+        
         let cycleableWindows = windowList.filter { window in
-            var subrole: CFTypeRef?
-            AXUIElementCopyAttributeValue(window, kAXSubroleAttribute as CFString, &subrole)
+            var subrole: CFTypeRef?; AXUIElementCopyAttributeValue(window, kAXSubroleAttribute as CFString, &subrole)
             if let subrole = subrole as? String, subrole == kAXStandardWindowSubrole as String {
-                var isMinimized: CFTypeRef?
-                AXUIElementCopyAttributeValue(window, kAXMinimizedAttribute as CFString, &isMinimized)
+                var isMinimized: CFTypeRef?; AXUIElementCopyAttributeValue(window, kAXMinimizedAttribute as CFString, &isMinimized)
                 return (isMinimized as? NSNumber)?.boolValue == false
             }
             return false
         }
-
-        let sortedWindows = cycleableWindows.sorted { w1, w2 -> Bool in
-            var title1: CFTypeRef?, title2: CFTypeRef?
-            AXUIElementCopyAttributeValue(w1, kAXTitleAttribute as CFString, &title1)
-            AXUIElementCopyAttributeValue(w2, kAXTitleAttribute as CFString, &title2)
-            return (title1 as? String ?? "") < (title2 as? String ?? "")
-        }
-
-        guard !sortedWindows.isEmpty else {
-            print("[CYCLE] No standard, non-minimized windows found. Activating instead.")
-            forceActivate(app: app)
+        
+        guard !cycleableWindows.isEmpty else {
+            app.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
             return
         }
-
-        print("[CYCLE] Found \(sortedWindows.count) windows, sorted by title.")
-
-        let lastIndex = self.lastCycledWindowIndex[pid]
-
-        let nextIndex: Int
-        if let lastIndex = lastIndex, lastIndex < sortedWindows.count {
-            print("[CYCLE] Found last-used index for PID \(pid): \(lastIndex).")
-            nextIndex = (lastIndex + 1) % sortedWindows.count
-        } else {
-            print("[CYCLE] No valid index found for PID \(pid). Starting from 0.")
-            nextIndex = 0
+        
+        let sortedWindows = cycleableWindows.sorted { w1, w2 -> Bool in
+            var t1: CFTypeRef?, t2: CFTypeRef?
+            AXUIElementCopyAttributeValue(w1, kAXTitleAttribute as CFString, &t1)
+            AXUIElementCopyAttributeValue(w2, kAXTitleAttribute as CFString, &t2)
+            return (t1 as? String ?? "") < (t2 as? String ?? "")
         }
         
-        print("[CYCLE] Next window index is \(nextIndex).")
+        let lastIndex = self.lastCycledWindowIndex[app.processIdentifier]
+        let nextIndex = (lastIndex != nil && lastIndex! < sortedWindows.count) ? (lastIndex! + 1) % sortedWindows.count : 0
         let nextWindow = sortedWindows[nextIndex]
+        
         AXUIElementPerformAction(nextWindow, kAXRaiseAction as CFString)
         AXUIElementSetAttributeValue(appElement, kAXMainWindowAttribute as CFString, nextWindow)
-        self.lastCycledWindowIndex[pid] = nextIndex
+        self.lastCycledWindowIndex[app.processIdentifier] = nextIndex
     }
     
     private func launchAndActivate(bundleId: String) {
         guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else { return }
-        let configuration = NSWorkspace.OpenConfiguration()
-        configuration.activates = true
-        NSWorkspace.shared.openApplication(at: appURL, configuration: configuration) { runningApp, _ in
-            if let runningApp = runningApp {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.forceActivate(app: runningApp)
-                }
-            }
+        let config = NSWorkspace.OpenConfiguration()
+        config.activates = true
+        NSWorkspace.shared.openApplication(at: appURL, configuration: config) { app, _ in
+            app?.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
         }
     }
     
-    private func forceActivate(app: NSRunningApplication) {
-        app.unhide()
-        app.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
-    }
-
-    func removeAssignment(keyCode: CGKeyCode) {
-        DispatchQueue.main.async {
-            self.assignments.removeValue(forKey: keyCode)
-            self.saveAssignments()
+    private func runScript(command: String, runsInTerminal: Bool) {
+        if runsInTerminal {
+            let escapedCommand = command.replacingOccurrences(of: "\"", with: "\\\"")
+            let appleScript = """
+            tell application "Terminal"
+                activate
+                do script "\(escapedCommand)" in window 1
+            end tell
+            """
+            let task = Process()
+            task.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            task.arguments = ["-e", appleScript]
+            do { try task.run() } catch { print("Failed to run script in Terminal: \(error)") }
+        } else {
+            let task = Process()
+            task.executableURL = URL(fileURLWithPath: "/bin/zsh")
+            task.arguments = ["-c", command]
+            do { try task.run() } catch { print("Failed to run script in background: \(error)") }
         }
     }
     
-    func clearAllAssignments() {
-        DispatchQueue.main.async {
-            self.assignments.removeAll()
-            self.saveAssignments()
-        }
-    }
-
-    func updateBehavior(for keyCode: CGKeyCode, to newBehavior: ShortcutConfiguration.Behavior) {
-        DispatchQueue.main.async {
-            guard self.assignments[keyCode] != nil else { return }
-            self.assignments[keyCode]?.behavior = newBehavior
-            self.saveAssignments()
-            print("[ACTION] Updated behavior for key \(keyCode) to \(newBehavior.rawValue)")
-        }
-    }
-
-    private func saveAssignments() {
+    private func runShortcut(name: String) {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/shortcuts")
+        task.arguments = ["run", name]
         do {
-            let data = try JSONEncoder().encode(assignments)
-            UserDefaults.standard.set(data, forKey: assignmentsKey)
+            try task.run()
         } catch {
-            print("[ERROR] Failed to save assignments: \(error.localizedDescription)")
+            print("Failed to run shortcut '\(name)': \(error)")
+            NotificationManager.shared.sendNotification(title: "Shortcut Failed", body: "Could not run '\(name)'. Check the name and Shortcut permissions.")
         }
     }
     
-    private func loadAssignments() {
-        guard let data = UserDefaults.standard.data(forKey: assignmentsKey) else { return }
-        do {
-            assignments = try JSONDecoder().decode([CGKeyCode: ShortcutConfiguration].self, from: data)
-        } catch {
-            print("[ERROR] Failed to load assignments, data might be outdated. Clearing. Error: \(error.localizedDescription)")
-            UserDefaults.standard.removeObject(forKey: assignmentsKey)
+    // MARK: - Helpers
+    private func getDisplayName(for target: ShortcutTarget) -> String? {
+        switch target {
+        case .app(let bundleId):
+            return getAppName(for: bundleId)
+        case .url(let urlString):
+            return URL(string: urlString)?.host ?? "URL"
+        case .file(let path):
+            return URL(fileURLWithPath: path).lastPathComponent
+        case .script:
+            return "Script"
+        case .shortcut(let name):
+            return name
         }
     }
     
@@ -292,14 +469,18 @@ class AppHotKeyManager: ObservableObject {
     }
     
     func getAppIcon(for bundleId: String) -> NSImage? {
-        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
-            return nil
-        }
+        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else { return nil }
         return NSWorkspace.shared.icon(forFile: appURL.path)
     }
     
     func keyString(for keyCode: CGKeyCode) -> String {
-        let keyMap: [CGKeyCode: String] = [0: "A", 1: "S", 2: "D", 3: "F", 4: "H", 5: "G", 6: "Z", 7: "X", 8: "C", 9: "V", 11: "B", 12: "Q", 13: "W", 14: "E", 15: "R", 16: "Y", 17: "T", 31: "O", 32: "U", 34: "I", 35: "P", 37: "L", 38: "J", 40: "K"]
-        return keyMap[keyCode] ?? "Key \(keyCode)"
+        if let assignment = settings.currentProfile.wrappedValue.assignments.first(where: { $0.keyCode == keyCode }) {
+            let trigger = settings.triggerModifier(for: assignment.configuration.target)
+            if keyCode == trigger.keyCode { return trigger.displayName }
+        }
+        if keyCode == settings.currentProfile.wrappedValue.secondaryModifier.keyCode {
+            return settings.currentProfile.wrappedValue.secondaryModifier.displayName
+        }
+        return KeyboardLayout.character(for: keyCode) ?? "Key \(keyCode)"
     }
 }
