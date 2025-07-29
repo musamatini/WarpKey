@@ -12,8 +12,6 @@
 
 WarpKey is a lightweight yet powerful macOS utility that puts your entire workflow at your fingertips. Go beyond simple app switching and create custom keyboard shortcuts to launch, hide, or run virtually anything. It's designed to be blazing-fast and intuitive, running discreetly from your menu bar to keep you in the flow.
 
-![WarpKey UI](https://github.com/musamatini/WrapKey/assets/13242373/a37b3b3a-a1ad-4670-a0fd-16ac6758416d)
-
 ## ✨ Core Features
 
 *   **🚀 Launch Anything:** Create hotkeys for not just Apps, but also **Files, Folders, URLs, Shell Scripts, and macOS Shortcuts**.
