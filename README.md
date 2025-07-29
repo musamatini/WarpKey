@@ -6,9 +6,9 @@
 
 ![Platform](https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white)
 ![Made with Swift](https://img.shields.io/badge/Made%20with-Swift-F05138?style=flat-square&logo=Swift&logoColor=white)
-![Release](https://img.shields.io/github/v/release/musamatini/WarpKey?style=flat-square&logo=github&color=blue)
-![Downloads](https://img.shields.io/github/downloads/musamatini/WarpKey/total?style=flat-square&logo=arrow-down-circle&color=brightgreen)
-![Stars](https://img.shields.io/github/stars/musamatini/WarpKey?style=flat-square&logo=star&color=gold)
+![Release](https://img.shields.io/github/v/release/musamatini/WrapKey?style=flat-square&logo=github&color=blue)
+![Downloads](https://img.shields.io/github/downloads/musamatini/WrapKey/total?style=flat-square&logo=arrow-down-circle&color=brightgreen)
+![Stars](https://img.shields.io/github/stars/musamatini/WrapKey?style=flat-square&logo=star&color=gold)
 
 WarpKey is a lightweight yet powerful macOS utility that puts your entire workflow at your fingertips. Go beyond simple app switching and create custom keyboard shortcuts to launch, hide, or run virtually anything. It's designed to be blazing-fast and intuitive, running discreetly from your menu bar to keep you in the flow.
 
