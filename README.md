@@ -1,6 +1,6 @@
 ![Banner](https://github.com/musamatini/WrapKey/blob/main/banner.png)
 
-# 🎉 WarpKey: Your Mac's Productivity Power-Up! 🚀
+# 🎉 WrapKey: Your Mac's Productivity Power-Up! 🚀
 
 ### The Ultimate Hotkey Manager for Your Apps, Files, URLs, and Scripts.
 
@@ -10,7 +10,7 @@
 ![Downloads](https://img.shields.io/github/downloads/musamatini/WrapKey/total?style=flat-square&logo=arrow-down-circle&color=brightgreen)
 ![Stars](https://img.shields.io/github/stars/musamatini/WrapKey?style=flat-square&logo=star&color=gold)
 
-WarpKey is a lightweight yet powerful macOS utility that puts your entire workflow at your fingertips. Go beyond simple app switching and create custom keyboard shortcuts to launch, hide, or run virtually anything. It's designed to be blazing-fast and intuitive, running discreetly from your menu bar to keep you in the flow.
+WrapKey is a lightweight yet powerful macOS utility that puts your entire workflow at your fingertips. Go beyond simple app switching and create custom keyboard shortcuts to launch, hide, or run virtually anything. It's designed to be blazing-fast and intuitive, running discreetly from your menu bar to keep you in the flow.
 
 ## ✨ Core Features
 
@@ -18,20 +18,20 @@ WarpKey is a lightweight yet powerful macOS utility that puts your entire workfl
 *   **🎹 Per-Type Triggers:** Assign a unique trigger key for each shortcut category (e.g., `⌘` for Apps, `⌥` for URLs) for ultimate organization and control.
 *   **🗂️ Profiles:** Create different sets of hotkeys and triggers for different contexts like "Work," "Personal," or "Design." Switch between them instantly.
 *   **✏️ Fully Editable:** Edit your shortcuts' content—not just the hotkey. Change a URL, update a script, or point to a new file at any time.
-*   **⚠️ Conflict Detection:** WarpKey intelligently detects when a hotkey is assigned to multiple actions, alerts you, and runs *all* of them when pressed.
+*   **⚠️ Conflict Detection:** WrapKey intelligently detects when a hotkey is assigned to multiple actions, alerts you, and runs *all* of them when pressed.
 *   **🔄 Import & Export:** Easily back up your entire configuration, including all profiles and shortcuts, to a JSON file. Perfect for migrating to a new Mac.
 *   **🌪️ Blazing Fast & Native:** Built in Swift for macOS, ensuring it's lightweight, fast, and efficient.
 
 ## 🚀 Quick Start
 
-1.  **[Download `WarpKey.zip`](https://github.com/musamatini/WarpKey/releases/latest)** from the latest release.
-2.  Unzip the file and drag **`WarpKey.app`** into your `/Applications` folder.
-3.  Launch WarpKey. You must **grant Accessibility permissions** when prompted for the hotkeys to work.
+1.  **[Download `WrapKey.zip`](https://github.com/musamatini/WrapKey/releases/latest)** from the latest release.
+2.  Unzip the file and drag **`WrapKey.app`** into your `/Applications` folder.
+3.  Launch WrapKey. You must **grant Accessibility permissions** when prompted for the hotkeys to work.
 
 ### How It Works
 
 *   **To Add a Shortcut:**
-    1.  Click the WarpKey icon in your menu bar.
+    1.  Click the WrapKey icon in your menu bar.
     2.  Click the **`+ Add Shortcut`** button and choose a type (URL, File, Script, etc.).
     3.  Follow the prompts and assign a hotkey when asked.
 
@@ -47,23 +47,23 @@ WarpKey is a lightweight yet powerful macOS utility that puts your entire workfl
 
 ## 👨‍💻 For Developers (Build from Source)
 
-1.  Clone the repo: `git clone https://github.com/musamatini/WarpKey.git`
-2.  Open `WarpKey.xcodeproj` in Xcode and run the project.
+1.  Clone the repo: `git clone https://github.com/musamatini/WrapKey.git`
+2.  Open `WrapKey.xcodeproj` in Xcode and run the project.
 
 ## 🤝 Contribution & Support
 
-WarpKey is an open-source project, and community help is warmly welcomed!
+WrapKey is an open-source project, and community help is warmly welcomed!
 
-*   **Feedback & Ideas:** If you find a bug or have a feature request, please open an [issue](https://github.com/musamatini/WarpKey/issues).
-*   **Contributing Code:** Pull requests are always appreciated! Every contribution helps make WarpKey better.
+*   **Feedback & Ideas:** If you find a bug or have a feature request, please open an [issue](https://github.com/musamatini/WrapKey/issues).
+*   **Contributing Code:** Pull requests are always appreciated! Every contribution helps make WrapKey better.
 
 ## ❤️ A Note from the Developer
 
-I'm **Musa Matini**, and WarpKey is a passion project marking my exciting early steps as a junior developer. Building this has been an incredible learning experience, and I'm genuinely thrilled to share it.
+I'm **Musa Matini**, and WrapKey is a passion project marking my exciting early steps as a junior developer. Building this has been an incredible learning experience, and I'm genuinely thrilled to share it.
 
 Your patience, feedback, and support are truly appreciated as I navigate this journey. Feel free to connect with me at my personal website:
 🌐 **[https://musa.matini.link]**
 
 ---
 
-Thank you for checking out WarpKey! Happy shortcutting!
+Thank you for checking out WrapKey! Happy shortcutting!

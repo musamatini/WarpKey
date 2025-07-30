@@ -111,6 +111,7 @@
 			packageReferences = (
 				D0B157A42E25AAFA00BFFA08 /* XCLocalSwiftPackageReference "../../../Downloads/Glur-main" */,
 				D0B157A72E25B30E00BFFA08 /* XCLocalSwiftPackageReference "../../../Downloads/BlurView-main" */,
+				D02170F52E3A07BB0073BE65 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D0509E582E1A754D00AC3CAC /* Products */;
@@ -365,6 +366,17 @@
 			relativePath = "../../../Downloads/BlurView-main";
 		};
 /* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		D02170F52E3A07BB0073BE65 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.7.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
 	};
 	rootObject = D0509E4F2E1A754C00AC3CAC /* Project object */;
 }
