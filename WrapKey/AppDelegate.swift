@@ -24,16 +24,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         let settingsManager = SettingsManager()
         self.settings = settingsManager
         self.hotKeyManager = AppHotKeyManager(settings: settingsManager)
+        
+        self.updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+
         super.init()
     }
 
     // MARK: - NSApplicationDelegate Lifecycle
     func applicationDidFinishLaunching(_ notification: Foundation.Notification) {
+        UNUserNotificationCenter.current().delegate = self
+        checkNotificationStatusAndWarnIfNeeded()
+
         if settings.hasCompletedOnboarding {
             NSApp.setActivationPolicy(.accessory)
         }
-
-        UNUserNotificationCenter.current().delegate = self
 
         settingsCancellable = settings.$showMenuBarIcon
             .receive(on: DispatchQueue.main)
@@ -67,6 +71,55 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         NSApp.activate(ignoringOtherApps: true)
         openWindowAction?(id: "main-menu")
         return true
+    }
+    
+    // MARK: - Permissions
+    func checkNotificationStatusAndWarnIfNeeded() {
+        let center = UNUserNotificationCenter.current()
+        
+        center.getNotificationSettings { settings in
+            DispatchQueue.main.async {
+                switch settings.authorizationStatus {
+                case .notDetermined:
+                    self.requestInitialPermission(center: center)
+                
+                case .denied:
+                    self.showPermissionDeniedAlert()
+
+                case .authorized, .provisional, .ephemeral:
+                    break
+
+                @unknown default:
+                    break
+                }
+            }
+        }
+    }
+    
+    private func requestInitialPermission(center: UNUserNotificationCenter) {
+        center.requestAuthorization(options: [.alert, .sound]) { granted, error in
+            if let error = error {
+                print("Error requesting notification permission: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func showPermissionDeniedAlert() {
+        let alert = NSAlert()
+        alert.messageText = "Notifications Disabled"
+        alert.informativeText = "To receive confirmations for background actions like importing settings or assigning apps, please enable notifications for WarpKey in System Settings."
+        alert.alertStyle = .warning
+        
+        alert.addButton(withTitle: "Open Settings")
+        alert.addButton(withTitle: "Later")
+        
+        let response = alert.runModal()
+        
+        if response == .alertFirstButtonReturn {
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.notifications") {
+                NSWorkspace.shared.open(url)
+            }
+        }
     }
     
     // MARK: - Menu Bar Item
