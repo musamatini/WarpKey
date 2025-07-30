@@ -364,7 +364,7 @@ struct WelcomePage: View {
     @EnvironmentObject var settings: SettingsManager
     var onGetStarted: () -> Void
     @State private var isShowingContent = false
-    private let donationURL = URL(string: "https://buymeacoffee.com/musamatini")!
+    private let donationURL = URL(string: "https://www.patreon.com/MusaMatini")!
     private let githubURL = URL(string: "https://github.com/musamatini/WarpKey")!
     
     var body: some View {
@@ -420,6 +420,7 @@ struct HelpView: View {
                         HelpDetailRow(icon: "plus.app.fill", title: "Assign an App", subtitle: "Bring an app to the front, then press **\(settings.currentProfile.wrappedValue.secondaryModifier.displayName) + \(settings.currentProfile.wrappedValue.triggerModifiers[.app]!.displayName) + [Letter]**.")
                         HelpDetailRow(icon: "bolt.horizontal.circle.fill", title: "Use a Shortcut", subtitle: "Anywhere in macOS, press **[Trigger Key] + [Letter]** to trigger your shortcut.")
                         HelpDetailRow(icon: "plus", title: "Add Other Shortcuts", subtitle: "Use the **+ Add Shortcut** button to create shortcuts for URLs, files, folders, and shell scripts.")
+                        HelpDetailRow(icon: "pencil.and.scribble", title: "Edit a Shortcut", subtitle: "For URLs, Scripts, and Files, click the pencil icon to either change the hotkey or update its content (the URL, command, or file path).")
                     }
                     
                     HelpSection(title: "Shortcut Types") {
@@ -433,6 +434,7 @@ struct HelpView: View {
                     HelpSection(title: "Advanced Features") {
                         HelpDetailRow(icon: "person.2.fill", title: "Profiles", subtitle: "Create different sets of shortcuts and trigger keys for different contexts (e.g., 'Work', 'Studying'). Manage them in App Settings.")
                         HelpDetailRow(icon: "keyboard.fill", title: "Per-Type Triggers", subtitle: "Assign a different Trigger Key for each category of shortcut (Apps, URLs, etc.) for ultimate control.")
+                        HelpDetailRow(icon: "exclamationmark.triangle.fill", title: "Hotkey Conflicts", subtitle: "If a hotkey is assigned to multiple actions, a warning will appear. When pressed, all conflicting actions will run.")
                         HelpDetailRow(icon: "square.and.arrow.down", title: "Import/Export", subtitle: "Save your entire setup, including all profiles and shortcuts, to a file. Perfect for backups or moving to a new Mac.")
                     }
                 }
@@ -956,7 +958,7 @@ struct FooterView: View {
     var onShowHelp: () -> Void
     var onShowAppSettings: () -> Void
     @Binding var sheetType: SheetType?
-    private let donationURL = URL(string: "https://www.buymeocoffee.com/musamatini")!
+    private let donationURL = URL(string: "https://www.patreon.com/MusaMatini")!
     
     var body: some View {
         VStack(spacing: 10) {
