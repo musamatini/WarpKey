@@ -1,4 +1,3 @@
-//SettingsManager.swift
 import SwiftUI
 import Combine
 
@@ -163,7 +162,6 @@ class SettingsManager: ObservableObject {
         }
     }
     
-    // Important: New method to update the content of a shortcut
     func updateAssignmentContent(id: UUID, newTarget: ShortcutTarget) {
         if let profileIndex = self.profiles.firstIndex(where: { $0.id == self.currentProfileID }),
            let assignmentIndex = self.profiles[profileIndex].assignments.firstIndex(where: { $0.id == id }) {

@@ -1,14 +1,17 @@
-//AppDelegate.swift
+// AppDelegate.swift
+
 import AppKit
 import SwiftUI
 import UserNotifications
 import Combine
 import QuartzCore
+import Sparkle
 
 class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
 
     // MARK: - Properties
     var statusItem: NSStatusItem?
+    var updaterController: SPUStandardUpdaterController!
     
     private(set) var settings: SettingsManager
     private(set) var hotKeyManager: AppHotKeyManager

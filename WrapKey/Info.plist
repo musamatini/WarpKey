@@ -8,5 +8,9 @@
 	<string>RCMD needs to run automatically at login to keep your hotkeys available.</string>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>RCMD sends notifications to confirm when a new hotkey has been successfully assigned.</string>
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/musamatini/WrapKey/main/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>DiCy6nySdgvd1YxMooOm8I9I3tFIr9H2OJrEb6LdEYU=</string>
 </dict>
 </plist>

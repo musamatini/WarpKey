@@ -1,4 +1,3 @@
-//UIComponents.swift
 import SwiftUI
 import AppKit
 

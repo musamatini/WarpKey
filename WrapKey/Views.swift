@@ -1,5 +1,8 @@
+// Views.swift
+
 import SwiftUI
 import AppKit
+import Sparkle
 
 // MARK: - Navigation Enums
 enum SheetType: Identifiable, Equatable {
@@ -47,6 +50,7 @@ struct PillButton: ViewModifier {
 struct MenuView: View {
     @ObservedObject var manager: AppHotKeyManager
     @ObservedObject var launchManager: LaunchAtLoginManager
+    @ObservedObject var updaterViewModel: UpdaterViewModel
     @EnvironmentObject var settings: SettingsManager
     
     @State private var currentPage: AppPage = .settings
@@ -57,7 +61,11 @@ struct MenuView: View {
             if currentPage == .welcome {
                 WelcomePage(onGetStarted: { withAnimation(.easeIn(duration: 0.3)) { currentPage = .settings } })
             } else {
-                MainTabView(manager: manager, launchManager: launchManager)
+                MainTabView(
+                    manager: manager,
+                    launchManager: launchManager,
+                    updaterViewModel: updaterViewModel
+                )
             }
         }
         .onAppear {
@@ -76,6 +84,7 @@ struct MenuView: View {
 struct MainTabView: View {
     @ObservedObject var manager: AppHotKeyManager
     @ObservedObject var launchManager: LaunchAtLoginManager
+    @ObservedObject var updaterViewModel: UpdaterViewModel
     @EnvironmentObject var settings: SettingsManager
     @State private var selectedTab: AppPage = .settings
     
@@ -90,8 +99,13 @@ struct MainTabView: View {
                 HelpView(goBack: { selectedTab = .settings })
                     .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)))
             } else if selectedTab == .appSettings {
-                AppSettingsView(manager: manager, launchManager: launchManager, goBack: { selectedTab = .settings })
-                    .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)))
+                AppSettingsView(
+                    manager: manager,
+                    launchManager: launchManager,
+                    updaterViewModel: updaterViewModel,
+                    goBack: { selectedTab = .settings }
+                )
+                .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)))
             }
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: selectedTab)
@@ -163,7 +177,7 @@ struct MainSettingsView: View {
             case .addFile: AddFileView { path in manager.listenForNewAssignment(target: .file(path)) }
             case .addScript: AddScriptView { command, runsInTerminal in manager.listenForNewAssignment(target: .script(command: command, runsInTerminal: runsInTerminal)) }
             case .addShortcut: ShortcutPickerView { name in manager.listenForNewAssignment(target: .shortcut(name: name)) }
-            case .editURL, .editScript, .editFile: EmptyView() // Handled by AssignmentRow's own sheet
+            case .editURL, .editScript, .editFile: EmptyView()
             }
         }
     }
@@ -173,6 +187,8 @@ struct MainSettingsView: View {
 struct AppSettingsView: View {
     @ObservedObject var manager: AppHotKeyManager
     @ObservedObject var launchManager: LaunchAtLoginManager
+    @ObservedObject var updaterViewModel: UpdaterViewModel
+    
     @EnvironmentObject var settings: SettingsManager
     @Environment(\.dismiss) private var dismiss
     var goBack: () -> Void
@@ -269,6 +285,23 @@ struct AppSettingsView: View {
                                 Button("Export All Profiles...") { exportSettings() }.modifier(PillButton())
                             }
                             .buttonStyle(.plain)
+                        }
+                        
+                        HelpSection(title: "Updates") {
+                            Toggle("Check for updates automatically", isOn: $updaterViewModel.automaticallyChecksForUpdates)
+                                .tint(AppTheme.accentColor1)
+                                .toggleStyle(.switch)
+                                .controlSize(.small)
+                            
+                            Divider()
+                                .padding(.vertical, 4)
+
+                            Button("Check for Updates Now") {
+                                updaterViewModel.checkForUpdates()
+                            }
+                            .modifier(PillButton())
+                            .buttonStyle(.plain)
+                            .disabled(!updaterViewModel.canCheckForUpdates)
                         }
                     }
                     .padding()

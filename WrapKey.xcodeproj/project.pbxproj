@@ -6,6 +6,19 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXCopyFilesBuildPhase section */
+		D02170FC2E3A0F5E0073BE65 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		D0509E572E1A754D00AC3CAC /* WrapKey.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WrapKey.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -20,11 +33,25 @@
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
+/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+		D02170FD2E3A0F5E0073BE65 /* Exceptions for "WrapKey" folder in "Embed Frameworks" phase from "WrapKey" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			attributesByRelativePath = {
+				Sparkle.framework = (CodeSignOnCopy, RemoveHeadersOnCopy, );
+			};
+			buildPhase = D02170FC2E3A0F5E0073BE65 /* Embed Frameworks */;
+			membershipExceptions = (
+				Sparkle.framework,
+			);
+		};
+/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		D0509E592E1A754D00AC3CAC /* WrapKey */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				D07DCED72E3933CA005A50C6 /* Exceptions for "WrapKey" folder in "WrapKey" target */,
+				D02170FD2E3A0F5E0073BE65 /* Exceptions for "WrapKey" folder in "Embed Frameworks" phase from "WrapKey" target */,
 			);
 			path = WrapKey;
 			sourceTree = "<group>";
@@ -68,6 +95,7 @@
 				D0509E532E1A754C00AC3CAC /* Sources */,
 				D0509E542E1A754C00AC3CAC /* Frameworks */,
 				D0509E552E1A754C00AC3CAC /* Resources */,
+				D02170FC2E3A0F5E0073BE65 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -112,6 +140,7 @@
 				D0B157A42E25AAFA00BFFA08 /* XCLocalSwiftPackageReference "../../../Downloads/Glur-main" */,
 				D0B157A72E25B30E00BFFA08 /* XCLocalSwiftPackageReference "../../../Downloads/BlurView-main" */,
 				D02170F52E3A07BB0073BE65 /* XCRemoteSwiftPackageReference "Sparkle" */,
+				D02170F62E3A0A380073BE65 /* XCRemoteSwiftPackageReference "kayishort" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D0509E582E1A754D00AC3CAC /* Products */;
@@ -278,6 +307,10 @@
 				DEVELOPMENT_TEAM = 4JBSRU58JR;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/WrapKey",
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = WrapKey/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = WrapKey;
@@ -313,6 +346,10 @@
 				DEVELOPMENT_TEAM = 4JBSRU58JR;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/WrapKey",
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = WrapKey/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = WrapKey;
@@ -374,6 +411,14 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 2.7.1;
+			};
+		};
+		D02170F62E3A0A380073BE65 /* XCRemoteSwiftPackageReference "kayishort" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/kayisoft/kayishort";
+			requirement = {
+				branch = master;
+				kind = branch;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
