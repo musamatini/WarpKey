@@ -31,8 +31,8 @@
       </description>
       <enclosure
         url="https://github.com/musamatini/WrapKey/releases/download/v1.0.4/WrapKey-Universal-Stable-v1.0.4.zip"
-        sparkle:version="4"
-        sparkle:shortVersionString="1.0.3"
+        sparkle:version="5"
+        sparkle:shortVersionString="1.0.4"
         length="3150868"
         type="application/octet-stream"
         sparkle:edSignature="2emxKi3UWFmbmZwiOfYAWLO/WaQMNpazam7Xl2aUKk9R4jsHhOSpsdXVekCbdF8N3sf9PIINj90wQOzpVqDbCA==" />
