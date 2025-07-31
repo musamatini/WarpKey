@@ -4,7 +4,7 @@ import AppKit
 import Sparkle
 import Combine
 
-// MARK: - Updater View Model (The Bridge)
+// MARK: - Updater View Model
 final class UpdaterViewModel: ObservableObject {
     @Published var canCheckForUpdates = false
     @Published var automaticallyChecksForUpdates: Bool
@@ -74,25 +74,20 @@ struct WrapKeyApp: App {
         _settingsManager = StateObject(wrappedValue: settings)
         _hotKeyManager = StateObject(wrappedValue: hotKey)
         
-
         appDelegate.settings = settings
         appDelegate.hotKeyManager = hotKey
     }
 
     private var preferredColorScheme: ColorScheme? {
         switch settingsManager.colorScheme {
-        case .light:
-            return .light
-        case .dark:
-            return .dark
-        case .auto:
-            return settingsManager.systemColorScheme
+        case .light: return .light
+        case .dark: return .dark
+        case .auto: return settingsManager.systemColorScheme
         }
     }
     
     var body: some Scene {
         Window("WrapKey", id: "main-menu") {
-
             MenuView(
                 manager: hotKeyManager,
                 launchManager: launchManager,

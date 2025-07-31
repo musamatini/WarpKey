@@ -16,31 +16,28 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     
     private var settingsCancellable: AnyCancellable?
     var openWindowAction: OpenWindowAction?
-    
-    // MARK: - Sparkle Updater (Corrected with lazy var)
+    private var updateCheckTimer: Timer?
 
+    // MARK: - Sparkle Updater
     lazy var updaterController: SPUStandardUpdaterController = {
-        return SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: self, userDriverDelegate: nil)
+        let controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: self, userDriverDelegate: nil)
+        controller.updater.updateCheckInterval = 6 * 60 * 60 // 6 hours
+        return controller
     }()
     
     lazy var updaterViewModel: UpdaterViewModel = {
         return UpdaterViewModel(updater: self.updaterController.updater)
     }()
     
-    // MARK: - Initialization
-    override init() {
-        super.init()
-    }
-
     // MARK: - NSApplicationDelegate Lifecycle
     func applicationDidFinishLaunching(_ notification: Foundation.Notification) {
         settings.setupAppearanceMonitoring()
         
         UNUserNotificationCenter.current().delegate = self
-        checkNotificationStatusAndWarnIfNeeded()
-
+        
         if settings.hasCompletedOnboarding {
             NSApp.setActivationPolicy(.accessory)
+            updaterController.updater.checkForUpdatesInBackground()
         }
 
         settingsCancellable = settings.$showMenuBarIcon
@@ -49,10 +46,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                 if isVisible {
                     self?.createStatusItem()
                 } else {
-                    if let item = self?.statusItem {
-                        NSStatusBar.system.removeStatusItem(item)
-                        self?.statusItem = nil
-                    }
+                    self?.removeStatusItem()
                 }
             }
         
@@ -61,11 +55,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
         
         NotificationCenter.default.addObserver(self, selector: #selector(handleOpenMainWindow), name: .openMainWindow, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(handleGoToHelpPage), name: .goToHelpPageInMainWindow, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleShortcutActivation), name: .shortcutActivated, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(windowWillClose(_:)), name: NSWindow.willCloseNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleAppDidBecomeActive), name: NSApplication.didBecomeActiveNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleRestartRequest), name: .requestAppRestart, object: nil)
+    }
+    
+    func applicationWillTerminate(_ notification: Notification) {
+        updateCheckTimer?.invalidate()
+        updateCheckTimer = nil
     }
     
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -82,14 +80,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     // MARK: - App Control
     @objc func handleRestartRequest() {
         let appPath = Bundle.main.bundlePath
-        let script = "sleep 1 && open \"\(appPath)\""
-
         let task = Process()
         task.launchPath = "/bin/sh"
-        task.arguments = ["-c", script]
-        task.standardError = nil
-        task.standardInput = nil
-        task.standardOutput = nil
+        task.arguments = ["-c", "sleep 1 && open \"\(appPath)\""]
         
         do {
             try task.run()
@@ -99,121 +92,51 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
     }
     
-    // MARK: - Permissions
-    func checkNotificationStatusAndWarnIfNeeded() {
-        let center = UNUserNotificationCenter.current()
-        
-        center.getNotificationSettings { settings in
-            DispatchQueue.main.async {
-                switch settings.authorizationStatus {
-                case .notDetermined:
-                    self.requestInitialPermission(center: center)
-                
-                case .denied:
-                    self.showPermissionDeniedAlert()
-
-                case .authorized, .provisional, .ephemeral:
-                    break
-
-                @unknown default:
-                    break
-                }
-            }
-        }
-    }
-    
-    private func requestInitialPermission(center: UNUserNotificationCenter) {
-        center.requestAuthorization(options: [.alert, .sound]) { granted, error in
-            if let error = error {
-                print("Error requesting notification permission: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    private func showPermissionDeniedAlert() {
-        let alert = NSAlert()
-        alert.messageText = "Notifications Disabled"
-        alert.informativeText = "To receive confirmations for background actions like importing settings or assigning apps, please enable notifications for WrapKey in System Settings."
-        alert.alertStyle = .warning
-        
-        alert.addButton(withTitle: "Open Settings")
-        alert.addButton(withTitle: "Later")
-        
-        let response = alert.runModal()
-        
-        if response == .alertFirstButtonReturn {
-            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.notifications") {
-                NSWorkspace.shared.open(url)
-            }
-        }
-    }
-    
     // MARK: - Menu Bar Item
-    @objc func createStatusItem() {
-        if statusItem == nil {
-            statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-            if let button = statusItem?.button {
-                button.wantsLayer = true
-                
-                if let customIcon = NSImage(named: "MenuBarIcon") {
-                    customIcon.isTemplate = true
-                    button.image = customIcon
-                } else {
-                    button.image = NSImage(systemSymbolName: "bolt.circle.fill", accessibilityDescription: "WrapKey")
-                }
-                
-                button.action = #selector(statusBarButtonClicked)
-                button.toolTip = "WrapKey"
-            }
+    func createStatusItem() {
+        guard statusItem == nil else { return }
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        if let button = statusItem?.button {
+            button.wantsLayer = true
+            let icon = NSImage(named: "MenuBarIcon") ?? NSImage(systemSymbolName: "bolt.circle.fill", accessibilityDescription: "WrapKey")
+            icon?.isTemplate = true
+            button.image = icon
+            button.action = #selector(statusBarButtonClicked)
+            button.toolTip = "WrapKey"
         }
         statusItem?.isVisible = true
+    }
+    
+    private func removeStatusItem() {
+        if let item = statusItem {
+            NSStatusBar.system.removeStatusItem(item)
+            statusItem = nil
+        }
     }
 
     @objc func statusBarButtonClicked() {
         let menu = NSMenu()
 
-        let openAppItem = NSMenuItem(title: "Open WrapKey", action: #selector(handleOpenMainWindow), keyEquivalent: "")
-        openAppItem.target = self
-        menu.addItem(openAppItem)
+        menu.addItem(withTitle: "Open WrapKey", action: #selector(handleOpenMainWindow), keyEquivalent: "")
         menu.addItem(.separator())
-
-        let allAssignments = settings.currentProfile.wrappedValue.assignments
-        let categorizedAssignments = Dictionary(grouping: allAssignments) { $0.configuration.target.category }
-        let categoryOrder: [ShortcutCategory] = [.app, .shortcut, .url, .file, .script]
-
-        var hasContent = false
-        for category in categoryOrder {
-            if let assignments = categorizedAssignments[category]?.sorted(by: { (hotKeyManager.getDisplayName(for: $0.configuration.target) ?? "") < (hotKeyManager.getDisplayName(for: $1.configuration.target) ?? "") }), !assignments.isEmpty {
-                hasContent = true
-                let header = NSMenuItem(title: category.rawValue, action: nil, keyEquivalent: "")
-                let attributes: [NSAttributedString.Key: Any] = [.font: NSFont.boldSystemFont(ofSize: NSFont.smallSystemFontSize)]
-                header.attributedTitle = NSAttributedString(string: category.rawValue, attributes: attributes)
-                header.isEnabled = false
-                menu.addItem(header)
-
-                for assignment in assignments {
-                    let title = hotKeyManager.getDisplayName(for: assignment.configuration.target) ?? "Unknown Shortcut"
-                    let menuItem = NSMenuItem(title: title, action: #selector(menuItemTriggered(_:)), keyEquivalent: "")
-                    menuItem.target = self
-                    menuItem.representedObject = assignment
-                    menuItem.image = hotKeyManager.getIcon(for: assignment.configuration.target)
-                    menu.addItem(menuItem)
-                }
-            }
-        }
         
-        if !hasContent {
+        let allAssignments = settings.currentProfile.wrappedValue.assignments
+        if allAssignments.isEmpty {
             let noShortcutsItem = NSMenuItem(title: "No shortcuts configured.", action: nil, keyEquivalent: "")
             noShortcutsItem.isEnabled = false
             menu.addItem(noShortcutsItem)
+        } else {
+            for assignment in allAssignments.sorted(by: { (hotKeyManager.getDisplayName(for: $0.configuration.target) ?? "") < (hotKeyManager.getDisplayName(for: $1.configuration.target) ?? "") }) {
+                let title = hotKeyManager.getDisplayName(for: assignment.configuration.target) ?? "Unknown Shortcut"
+                let menuItem = NSMenuItem(title: title, action: #selector(menuItemTriggered(_:)), keyEquivalent: "")
+                menuItem.representedObject = assignment
+                menuItem.image = hotKeyManager.getIcon(for: assignment.configuration.target)
+                menu.addItem(menuItem)
+            }
         }
 
-        if let lastItem = menu.items.last, !lastItem.isSeparatorItem {
-            menu.addItem(.separator())
-        }
-
-        let quitItem = NSMenuItem(title: "Quit WrapKey", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        menu.addItem(quitItem)
+        menu.addItem(.separator())
+        menu.addItem(withTitle: "Quit WrapKey", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         
         statusItem?.popUpMenu(menu)
     }
@@ -225,10 +148,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
     // MARK: - Notification Handlers
     @objc func windowWillClose(_ notification: Notification) {
-        guard let window = notification.object as? NSWindow, window.title == "WrapKey" else {
-            return
-        }
-        
+        guard let window = notification.object as? NSWindow, window.title == "WrapKey" else { return }
         if settings.hasCompletedOnboarding {
             NSApp.setActivationPolicy(.accessory)
         }
@@ -238,11 +158,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         openWindowAction?(id: "main-menu")
-    }
-    
-    @objc private func handleGoToHelpPage() {
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
     }
 
     @objc private func handleShortcutActivation() {
@@ -259,7 +174,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         hotKeyManager.restartMonitoringIfNeeded()
     }
     
-    // MARK: - Sparkle Updater Delegate (Gentle Reminders)
+    // MARK: - Sparkle Updater Delegate
     func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem, for anUpdateCheck: SPUUpdateCheck, state: SPUUserUpdateState, acknowledgement: @escaping (SPUUserUpdateChoice) -> Void) {
         if NSApp.activationPolicy() == .accessory {
             NotificationManager.shared.sendUpdateAvailableNotification(version: item.displayVersionString)
@@ -267,6 +182,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         } else {
             acknowledgement(.install)
         }
+    }
+
+    func updaterDidNotFindUpdate(_ updater: SPUUpdater) {
+        // Intentionally left blank to suppress "You're up to date" alerts.
     }
 
     // MARK: - User Notification Center Delegate
@@ -284,5 +203,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             break
         }
         completionHandler()
+    }
+}
+
+private extension Bundle {
+    var versionString: String {
+        return object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "N/A"
     }
 }

@@ -2,7 +2,9 @@
 import Foundation
 import SwiftUI
 
-// MARK: - App Design System
+// MARK: - Title
+// App Design System
+
 struct AppTheme {
     // MARK: - Core Palette
     private static let mistyWhite = Color(hex: "F0F3EF")

@@ -67,10 +67,6 @@ struct BlurredBackgroundView: View {
 }
 
 // MARK: - General UI Components
-enum ModifierType {
-    case trigger, secondary
-}
-
 struct TitleBarButton: View {
     @Environment(\.colorScheme) private var colorScheme
     let systemName: String
@@ -91,60 +87,60 @@ struct TitleBarButton: View {
         .focusable(false)
     }
 }
+
+// MARK: - Titles
 struct CustomTitleBar: View {
-@EnvironmentObject var settings: SettingsManager
-@Environment(\.colorScheme) private var colorScheme
+    @EnvironmentObject var settings: SettingsManager
+    @Environment(\.colorScheme) private var colorScheme
 
-let title: String
-var showBackButton: Bool = false
-var onBack: (() -> Void)? = nil
-var onClose: () -> Void
+    let title: String
+    var showBackButton: Bool = false
+    var onBack: (() -> Void)? = nil
+    var onClose: () -> Void
 
-private let githubURL = URL(string: "https://github.com/musamatini/WrapKey")!
+    private let githubURL = URL(string: "https://github.com/musamatini/WrapKey")!
 
-var body: some View {
-    HStack(alignment: .center) {
-        if showBackButton {
-            TitleBarButton(systemName: "chevron.left", action: { onBack?() }, tintColor: AppTheme.accentColor1(for: colorScheme))
-                .padding(.trailing, 4)
-            Text(title)
-                .font(.headline)
-                .fontWeight(.semibold)
-                .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
-                .padding(.leading, 12) // Add padding between arrow and title
-        } else {
-            HStack(spacing: 0) {
-                if let appIcon = NSImage(named: NSImage.Name("AppIcon")) {
-                    Image(nsImage: appIcon)
-                        .resizable().aspectRatio(contentMode: .fit)
-                        .frame(width: 28, height: 28).clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                }
-                
-                Link(destination: githubURL) {
-                    Text(title).font(.headline).fontWeight(.semibold)
-                }
-                .buttonStyle(.plain)
-                .padding(.leading, 4)
-                
-                ProfileDropdownButton()
+    var body: some View {
+        HStack(alignment: .center) {
+            if showBackButton {
+                TitleBarButton(systemName: "chevron.left", action: { onBack?() }, tintColor: AppTheme.accentColor1(for: colorScheme))
+                    .padding(.trailing, 4)
+                Text(title)
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
+                    .padding(.leading, 12)
+            } else {
+                HStack(spacing: 0) {
+                    if let appIcon = NSImage(named: NSImage.Name("AppIcon")) {
+                        Image(nsImage: appIcon)
+                            .resizable().aspectRatio(contentMode: .fit)
+                            .frame(width: 28, height: 28).clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    }
+                    
+                    Link(destination: githubURL) {
+                        Text(title).font(.headline).fontWeight(.semibold)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.leading, 4)
+                    
+                    ProfileDropdownButton()
+                        .padding(.leading, 8)
+                    .menuStyle(.borderlessButton)
+                    .menuIndicator(.hidden)
+                    .fixedSize()
                     .padding(.leading, 8)
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .fixedSize()
-                .padding(.leading, 8)
-
+                }
             }
+            
+            Spacer()
+            
+            TitleBarButton(systemName: "xmark", action: onClose, tintColor: AppTheme.secondaryTextColor(for: colorScheme), yOffset: -2)
         }
-        
-        Spacer()
-        
-        TitleBarButton(systemName: "xmark", action: onClose, tintColor: AppTheme.secondaryTextColor(for: colorScheme), yOffset: -2)
+        .padding(.horizontal)
+        .frame(height: 50)
     }
-    .padding(.horizontal)
-    .frame(height: 50)
 }
-}
-
 
 struct HelpSection<Content: View>: View {
     @Environment(\.colorScheme) private var colorScheme
@@ -272,6 +268,21 @@ struct CustomSwitchToggleStyle: ToggleStyle {
     }
 }
 
+struct PillButtonStyle: ButtonStyle {
+    @Environment(\.colorScheme) private var colorScheme
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .fontWeight(.semibold)
+            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity)
+            .background(AppTheme.pillBackgroundColor(for: colorScheme))
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
+            .opacity(configuration.isPressed ? 0.8 : 1.0)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+    }
+}
 
 // MARK: - Custom TextField
 class CursorAtEndTextField: NSTextField {
@@ -362,6 +373,7 @@ struct ProfileDropdownButton: View {
                             Spacer()
                         }
                         .padding(6)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }

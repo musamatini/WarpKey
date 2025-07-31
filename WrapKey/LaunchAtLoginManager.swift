@@ -3,7 +3,6 @@ import Foundation
 import ServiceManagement
 import Combine
 
-// MARK: - Launch At Login Manager
 class LaunchAtLoginManager: ObservableObject {
     @Published var isEnabled: Bool = SMAppService.mainApp.status == .enabled
     private var cancellable: AnyCancellable?

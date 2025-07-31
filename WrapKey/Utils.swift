@@ -1,5 +1,4 @@
 //Utils.swift
-				
 import AppKit
 import Foundation
 import UserNotifications
@@ -10,7 +9,6 @@ import Carbon.HIToolbox
 extension Notification.Name {
     static let openMainWindow = Notification.Name("openMainWindow")
     static let goToHelpPageInMainWindow = Notification.Name("goToHelpPageInMainWindow")
-    static let keyPressEvent = Notification.Name("KeyPressEvent")
     static let shortcutActivated = Notification.Name("shortcutActivated")
     static let requestAppRestart = Notification.Name("requestAppRestart")
 }
@@ -45,18 +43,16 @@ class NotificationManager {
     }
     
     private func registerNotificationCategories() {
-        // Category for new shortcut assignments
         let openAction = UNNotificationAction(identifier: "OPEN_ACTION", title: "Open App", options: [.foreground])
         let assignmentCategory = UNNotificationCategory(identifier: assignmentCategoryIdentifier, actions: [openAction], intentIdentifiers: [], options: [])
         
-        // Category for available updates
         let updateAction = UNNotificationAction(identifier: "UPDATE_ACTION", title: "Install Update", options: [.foreground])
         let updateCategory = UNNotificationCategory(identifier: updateCategoryIdentifier, actions: [updateAction], intentIdentifiers: [], options: [])
         
         center.setNotificationCategories([assignmentCategory, updateCategory])
     }
     
-    func sendAssignmentNotification(appName: String, keyString: String) {
+    func sendAssignmentNotification(appName: String) {
         let content = UNMutableNotificationContent()
         content.title = "Shortcut Assigned!"
         content.body = "A new shortcut was assigned to \(appName)."
@@ -177,4 +173,3 @@ extension NSAppearance {
         return false
     }
 }
-
