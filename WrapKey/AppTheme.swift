@@ -4,41 +4,75 @@ import SwiftUI
 
 // MARK: - App Design System
 struct AppTheme {
+    // MARK: - Core Palette
+    private static let mistyWhite = Color(hex: "F0F3EF")
+    private static let mutedTeal = Color(hex: "6A9E96")
+    private static let lightSage = Color(hex: "A3B8A8")
+    private static let burntOchre = Color(hex: "B87D4E")
+    private static let deepForestGreen = Color(hex: "1F2D2A")
+    private static let deepestForestGreen = Color(hex: "0D1715")
+    
+    private static let lightBackground = Color(hex: "F6F6F6")
+    private static let lightCardBackground = Color.white
+    private static let lightPillBackground = Color(hex: "E8E8E8")
+    private static let lightPrimaryText = Color(hex: "1C1C1E")
+    private static let lightSecondaryText = Color(hex: "6D6D72")
+
     // MARK: - Layout
     static let cornerRadius: CGFloat = 12
 
-    // MARK: - Colors - "Forest Mist"
-    static let mistyWhite = Color(hex: "F0F3EF")
-    static let mutedTeal = Color(hex: "6A9E96")
-    static let lightSage = Color(hex: "A3B8A8")
-    static let burntOchre = Color(hex: "B87D4E")
-    static let deepForestGreen = Color(hex: "1F2D2A")
-    static let deepestForestGreen = Color(hex: "0D1715")
+    // MARK: - Dynamic Theme Application
+    static func accentColor1(for scheme: ColorScheme) -> Color {
+        return burntOchre
+    }
+    
+    static func accentColor2(for scheme: ColorScheme) -> Color {
+        return mutedTeal
+    }
+    
+    static func cardBackgroundColor(for scheme: ColorScheme) -> Color {
+        return scheme == .dark ? deepForestGreen.opacity(0.7) : lightCardBackground
+    }
+    
+    static func pillBackgroundColor(for scheme: ColorScheme) -> Color {
+        return scheme == .dark ? mistyWhite.opacity(0.15) : lightPillBackground
+    }
+    
+    static func pickerBackgroundColor(for scheme: ColorScheme) -> Color {
+        return scheme == .dark ? mistyWhite.opacity(0.1) : lightPillBackground.opacity(0.7)
+    }
+    
+    static func pickerSelectedBackgroundColor(for scheme: ColorScheme) -> Color {
+        return scheme == .dark ? mutedTeal.opacity(0.4) : mutedTeal.opacity(0.7)
+    }
+    
+    static func toggleTintColor(for scheme: ColorScheme) -> Color {
+        return burntOchre
+    }
+    
+    static func primaryTextColor(for scheme: ColorScheme) -> Color {
+        return scheme == .dark ? mistyWhite : lightPrimaryText
+    }
+    
+    static func secondaryTextColor(for scheme: ColorScheme) -> Color {
+        return scheme == .dark ? mistyWhite.opacity(0.8) : lightSecondaryText
+    }
 
-    // MARK: - Theme Application
-    static let accentColor1 = burntOchre
-    static let accentColor2 = mutedTeal
-    static let cardBackgroundColor = deepForestGreen.opacity(0.7)
-    static let pillBackgroundColor = mistyWhite.opacity(0.15)
-    static let pickerBackgroundColor = mistyWhite.opacity(0.1)
-    static let pickerSelectedBackgroundColor = mutedTeal.opacity(0.4)
-    static let toggleTintColor = burntOchre
-    static let primaryTextColor = mistyWhite
-    static let secondaryTextColor = mistyWhite.opacity(0.8)
-
-    // MARK: - Gradients
-    static let backgroundGradient = RadialGradient(
-        gradient: Gradient(colors: [deepForestGreen, deepestForestGreen]),
-        center: .center,
-        startRadius: 0,
-        endRadius: 1000
-    )
-    static let welcomeGradient = RadialGradient(
-        gradient: Gradient(colors: [deepForestGreen, deepestForestGreen]),
-        center: .center,
-        startRadius: 0,
-        endRadius: 1000
-    )
+    // MARK: - Gradients & Backgrounds
+    static func background(for scheme: ColorScheme) -> some View {
+        Group {
+            if scheme == .dark {
+                RadialGradient(
+                    gradient: Gradient(colors: [deepForestGreen, deepestForestGreen]),
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: 1000
+                )
+            } else {
+                lightBackground
+            }
+        }
+    }
 }
 
 // MARK: - Color Extension

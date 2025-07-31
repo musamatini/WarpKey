@@ -1,5 +1,3 @@
-// AppDelegate.swift
-
 import AppKit
 import SwiftUI
 import UserNotifications
@@ -7,31 +5,36 @@ import Combine
 import QuartzCore
 import Sparkle
 
-class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate, SPUUpdaterDelegate {
 
     // MARK: - Properties
     var statusItem: NSStatusItem?
-    var updaterController: SPUStandardUpdaterController!
     
-    private(set) var settings: SettingsManager
-    private(set) var hotKeyManager: AppHotKeyManager
+    var settings: SettingsManager!
+    var hotKeyManager: AppHotKeyManager!
     
     private var settingsCancellable: AnyCancellable?
     var openWindowAction: OpenWindowAction?
+    
+    // MARK: - Sparkle Updater (Corrected with lazy var)
 
+    lazy var updaterController: SPUStandardUpdaterController = {
+        return SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: self, userDriverDelegate: nil)
+    }()
+    
+    lazy var updaterViewModel: UpdaterViewModel = {
+        return UpdaterViewModel(updater: self.updaterController.updater)
+    }()
+    
     // MARK: - Initialization
     override init() {
-        let settingsManager = SettingsManager()
-        self.settings = settingsManager
-        self.hotKeyManager = AppHotKeyManager(settings: settingsManager)
-        
-        self.updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
-
         super.init()
     }
 
     // MARK: - NSApplicationDelegate Lifecycle
     func applicationDidFinishLaunching(_ notification: Foundation.Notification) {
+        settings.setupAppearanceMonitoring()
+        
         UNUserNotificationCenter.current().delegate = self
         checkNotificationStatusAndWarnIfNeeded()
 
@@ -60,6 +63,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         NotificationCenter.default.addObserver(self, selector: #selector(handleGoToHelpPage), name: .goToHelpPageInMainWindow, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleShortcutActivation), name: .shortcutActivated, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(windowWillClose(_:)), name: NSWindow.willCloseNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleAppDidBecomeActive), name: NSApplication.didBecomeActiveNotification, object: nil)
     }
     
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -107,7 +111,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     private func showPermissionDeniedAlert() {
         let alert = NSAlert()
         alert.messageText = "Notifications Disabled"
-        alert.informativeText = "To receive confirmations for background actions like importing settings or assigning apps, please enable notifications for WarpKey in System Settings."
+        alert.informativeText = "To receive confirmations for background actions like importing settings or assigning apps, please enable notifications for WrapKey in System Settings."
         alert.alertStyle = .warning
         
         alert.addButton(withTitle: "Open Settings")
@@ -133,18 +137,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                     customIcon.isTemplate = true
                     button.image = customIcon
                 } else {
-                    button.image = NSImage(systemSymbolName: "bolt.circle.fill", accessibilityDescription: "WarpKey")
+                    button.image = NSImage(systemSymbolName: "bolt.circle.fill", accessibilityDescription: "WrapKey")
                 }
                 
                 button.action = #selector(statusBarButtonClicked)
-                button.toolTip = "WarpKey"
+                button.toolTip = "WrapKey"
             }
         }
         statusItem?.isVisible = true
     }
 
     @objc func statusBarButtonClicked() {
-        let mainWindow = NSApplication.shared.windows.first { $0.title == "WarpKey" }
+        let mainWindow = NSApplication.shared.windows.first { $0.title == "WrapKey" }
 
         if let window = mainWindow, window.isVisible {
             window.close()
@@ -157,7 +161,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
     // MARK: - Notification Handlers
     @objc func windowWillClose(_ notification: Notification) {
-        guard let window = notification.object as? NSWindow, window.title == "WarpKey" else {
+        guard let window = notification.object as? NSWindow, window.title == "WrapKey" else {
             return
         }
         
@@ -174,7 +178,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     @objc private func handleGoToHelpPage() {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
-        NotificationCenter.default.post(name: .goToHelpPageInMainWindow, object: nil)
     }
 
     @objc private func handleShortcutActivation() {
@@ -187,16 +190,35 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         button.layer?.add(animation, forKey: "bounce")
     }
 
+    @objc private func handleAppDidBecomeActive() {
+        hotKeyManager.restartMonitoringIfNeeded()
+    }
+    
+    // MARK: - Sparkle Updater Delegate (Gentle Reminders)
+    func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem, for anUpdateCheck: SPUUpdateCheck, state: SPUUserUpdateState, acknowledgement: @escaping (SPUUserUpdateChoice) -> Void) {
+        if NSApp.activationPolicy() == .accessory {
+            NotificationManager.shared.sendUpdateAvailableNotification(version: item.displayVersionString)
+            acknowledgement(.dismiss)
+        } else {
+            acknowledgement(.install)
+        }
+    }
+
     // MARK: - User Notification Center Delegate
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         completionHandler([.banner, .sound])
     }
     
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        if response.actionIdentifier == "OPEN_ACTION" {
+        switch response.actionIdentifier {
+        case "OPEN_ACTION":
             NSApp.setActivationPolicy(.regular)
             NSApp.activate(ignoringOtherApps: true)
             openWindowAction?(id: "main-menu")
+        case "UPDATE_ACTION":
+            updaterController.checkForUpdates(nil)
+        default:
+            break
         }
         completionHandler()
     }

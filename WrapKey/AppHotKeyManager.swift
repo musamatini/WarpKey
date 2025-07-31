@@ -1,3 +1,4 @@
+//AppHotkeyManager.swift
 import SwiftUI
 import AppKit
 import CoreGraphics
@@ -105,6 +106,7 @@ class AppHotKeyManager: ObservableObject {
     ]
     private var lastCycledWindowIndex: [pid_t: Int] = [:]
     private var eventTap: CFMachPort?
+    private var isMonitoringActive = false
     private var settingsCancellable: AnyCancellable?
     private var previousConflictingAssignmentIDs: Set<UUID> = []
     var settings: SettingsManager
@@ -128,26 +130,51 @@ class AppHotKeyManager: ObservableObject {
     }
     
     // MARK: - Event Monitoring
+    func restartMonitoringIfNeeded() {
+        guard !isMonitoringActive, AccessibilityManager.checkPermissions() else { return }
+        
+        DispatchQueue.main.async {
+            self.restartMonitoring()
+            if self.isMonitoringActive {
+                NotificationManager.shared.sendNotification(
+                    title: "Permissions Granted!",
+                    body: "WrapKey is now fully active and listening for your shortcuts."
+                )
+            }
+        }
+    }
+    
     private func restartMonitoring() {
         stopMonitoring()
         startMonitoring()
     }
 
     private func startMonitoring() {
-        if eventTap != nil { return }
-        if !AccessibilityManager.checkPermissions() { print("[WARN] Accessibility permissions not granted.") }
+        if isMonitoringActive { return }
+        
+        guard AccessibilityManager.checkPermissions() else {
+            print("[WARN] Accessibility permissions not granted. Key monitoring is disabled.")
+            isMonitoringActive = false
+            return
+        }
+        
         let eventTapCallback: CGEventTapCallBack = { (proxy, type, event, refcon) -> Unmanaged<CGEvent>? in
             guard let manager = refcon.map({ Unmanaged<AppHotKeyManager>.fromOpaque($0).takeUnretainedValue() }) else { return Unmanaged.passUnretained(event) }
             return manager.handle(proxy: proxy, type: type, event: event)
         }
         let selfAsUnsafeMutableRawPointer = Unmanaged.passUnretained(self).toOpaque()
         let eventsToMonitor: CGEventMask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue) | (1 << CGEventType.flagsChanged.rawValue)
+        
         eventTap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap, eventsOfInterest: eventsToMonitor, callback: eventTapCallback, userInfo: selfAsUnsafeMutableRawPointer)
+        
         if let tap = eventTap {
             let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
             CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
             CGEvent.tapEnable(tap: tap, enable: true)
+            isMonitoringActive = true
+            print("[INFO] Event tap created and monitoring started.")
         } else {
+            isMonitoringActive = false
             print("[FATAL ERROR] Failed to create CGEventTap. INPUT MONITORING PERMISSION ISSUE.")
         }
     }
@@ -156,6 +183,8 @@ class AppHotKeyManager: ObservableObject {
         if let tap = eventTap {
             CGEvent.tapEnable(tap: tap, enable: false)
             eventTap = nil
+            isMonitoringActive = false
+            print("[INFO] Event tap stopped.")
         }
     }
     

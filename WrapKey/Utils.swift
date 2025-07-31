@@ -1,4 +1,3 @@
-//Utils.swift
 import AppKit
 import Foundation
 import UserNotifications
@@ -28,6 +27,10 @@ class NotificationManager {
     static let shared = NotificationManager()
     private let center = UNUserNotificationCenter.current()
     
+    // MARK: - Notification Category Identifiers
+    private let assignmentCategoryIdentifier = "ASSIGNMENT_CATEGORY"
+    private let updateCategoryIdentifier = "UPDATE_AVAILABLE_CATEGORY"
+    
     private init() {
         registerNotificationCategories()
     }
@@ -39,9 +42,15 @@ class NotificationManager {
     }
     
     private func registerNotificationCategories() {
-        let action = UNNotificationAction(identifier: "OPEN_ACTION", title: "Open App", options: [.foreground])
-        let category = UNNotificationCategory(identifier: "ASSIGNMENT_CATEGORY", actions: [action], intentIdentifiers: [], options: [])
-        center.setNotificationCategories([category])
+        // Category for new shortcut assignments
+        let openAction = UNNotificationAction(identifier: "OPEN_ACTION", title: "Open App", options: [.foreground])
+        let assignmentCategory = UNNotificationCategory(identifier: assignmentCategoryIdentifier, actions: [openAction], intentIdentifiers: [], options: [])
+        
+        // Category for available updates
+        let updateAction = UNNotificationAction(identifier: "UPDATE_ACTION", title: "Install Update", options: [.foreground])
+        let updateCategory = UNNotificationCategory(identifier: updateCategoryIdentifier, actions: [updateAction], intentIdentifiers: [], options: [])
+        
+        center.setNotificationCategories([assignmentCategory, updateCategory])
     }
     
     func sendAssignmentNotification(appName: String, keyString: String) {
@@ -49,12 +58,23 @@ class NotificationManager {
         content.title = "Shortcut Assigned!"
         content.body = "A new shortcut was assigned to \(appName)."
         content.sound = .default
-        content.categoryIdentifier = "ASSIGNMENT_CATEGORY"
+        content.categoryIdentifier = assignmentCategoryIdentifier
         
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         center.add(request)
     }
     
+    func sendUpdateAvailableNotification(version: String) {
+        let content = UNMutableNotificationContent()
+        content.title = "A New WrapKey Version is Available!"
+        content.body = "Version \(version) is ready to be installed."
+        content.sound = .default
+        content.categoryIdentifier = updateCategoryIdentifier
+        
+        let request = UNNotificationRequest(identifier: "SPARKLE_UPDATE_AVAILABLE", content: content, trigger: nil)
+        center.add(request)
+    }
+
     func sendNotification(title: String, body: String, delay: TimeInterval = 0) {
         let content = UNMutableNotificationContent()
         content.title = title
@@ -142,5 +162,15 @@ struct KeyboardLayout {
         }
         
         return nil
+    }
+}
+
+// MARK: - Appearance Utilities
+extension NSAppearance {
+    var isDark: Bool {
+        if bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
+            return true
+        }
+        return false
     }
 }

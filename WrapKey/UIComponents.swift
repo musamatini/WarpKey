@@ -9,12 +9,19 @@ struct WindowAccessor: NSViewRepresentable {
         let view = NSView()
         DispatchQueue.main.async {
             guard let window = view.window else { return }
+            
             window.alphaValue = 0.0
-            window.styleMask.remove(.titled)
+            window.isMovableByWindowBackground = true
             window.backgroundColor = .clear
             window.hasShadow = false
-            window.isMovableByWindowBackground = true
+            window.level = .normal
             
+            window.styleMask.insert(.borderless)
+            window.styleMask.remove(.titled)
+            
+            window.titleVisibility = .hidden
+            window.titlebarAppearsTransparent = true
+
             if let screenFrame = NSScreen.main?.visibleFrame {
                 let finalWindowSize = expectedContentSize ?? window.frame.size
                 window.setContentSize(finalWindowSize)
@@ -22,6 +29,7 @@ struct WindowAccessor: NSViewRepresentable {
                 let newY = screenFrame.midY - (finalWindowSize.height / 2)
                 window.setFrameOrigin(NSPoint(x: newX, y: newY))
             }
+            
             NSApp.activate(ignoringOtherApps: true)
             NSAnimationContext.runAnimationGroup({ context in
                 context.duration = 0.2
@@ -35,19 +43,25 @@ struct WindowAccessor: NSViewRepresentable {
 
 // MARK: - Visual Effects
 struct VisualEffectBlur: NSViewRepresentable {
+    @Environment(\.colorScheme) private var colorScheme
+
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
         view.blendingMode = .withinWindow
-        view.material = .popover
         view.state = .active
+        updateNSView(view, context: context)
         return view
     }
-    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
+    
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = colorScheme == .dark ? .popover : .sheet
+    }
 }
 
 struct BlurredBackgroundView: View {
     var body: some View {
-        VisualEffectBlur().overlay(Color.white.opacity(0.01))
+        VisualEffectBlur()
+            .overlay(Color.primary.opacity(0.01))
     }
 }
 
@@ -57,6 +71,7 @@ enum ModifierType {
 }
 
 struct TitleBarButton: View {
+    @Environment(\.colorScheme) private var colorScheme
     let systemName: String
     let action: () -> Void
     var tintColor: Color?
@@ -68,83 +83,70 @@ struct TitleBarButton: View {
                 .font(.system(size: 18, weight: .medium))
                 .frame(width: 36, height: 36)
                 .contentShape(Rectangle())
-                .foregroundColor(tintColor ?? AppTheme.secondaryTextColor)
+                .foregroundColor(tintColor ?? AppTheme.secondaryTextColor(for: colorScheme))
         }
         .buttonStyle(.plain)
         .offset(y: yOffset)
         .focusable(false)
     }
 }
-
 struct CustomTitleBar: View {
-    @EnvironmentObject var settings: SettingsManager
+@EnvironmentObject var settings: SettingsManager
+@Environment(\.colorScheme) private var colorScheme
 
-    let title: String
-    var showBackButton: Bool = false
-    var onBack: (() -> Void)? = nil
-    var onClose: () -> Void
+let title: String
+var showBackButton: Bool = false
+var onBack: (() -> Void)? = nil
+var onClose: () -> Void
 
-    private let githubURL = URL(string: "https://github.com/musamatini/WarpKey")!
+private let githubURL = URL(string: "https://github.com/musamatini/WrapKey")!
 
-    var body: some View {
-        HStack(alignment: .center, spacing: 0) {
-            if showBackButton {
-                TitleBarButton(systemName: "chevron.left", action: { onBack?() }, tintColor: AppTheme.accentColor1)
-                    .padding(.trailing, 8)
-                Text(title)
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(AppTheme.primaryTextColor)
-            } else {
+var body: some View {
+    HStack(alignment: .center) {
+        if showBackButton {
+            TitleBarButton(systemName: "chevron.left", action: { onBack?() }, tintColor: AppTheme.accentColor1(for: colorScheme))
+                .padding(.trailing, 4)
+            Text(title)
+                .font(.headline)
+                .fontWeight(.semibold)
+                .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
+                .padding(.leading, 12) // Add padding between arrow and title
+        } else {
+            HStack(spacing: 0) {
                 if let appIcon = NSImage(named: NSImage.Name("AppIcon")) {
                     Image(nsImage: appIcon)
                         .resizable().aspectRatio(contentMode: .fit)
                         .frame(width: 28, height: 28).clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                        .padding(.trailing, 4)
                 }
                 
                 Link(destination: githubURL) {
                     Text(title).font(.headline).fontWeight(.semibold)
                 }
                 .buttonStyle(.plain)
+                .padding(.leading, 4)
                 
-                Menu {
-                    ForEach(settings.profiles) { profile in
-                        Button(action: { settings.currentProfileID = profile.id }) {
-                            if profile.id == settings.currentProfileID {
-                                Label(profile.name, systemImage: "checkmark")
-                            } else {
-                                Text(profile.name)
-                            }
-                        }
-                    }
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(settings.currentProfile.wrappedValue.name)
-                            .lineLimit(1)
-                        Image(systemName: "chevron.up.chevron.down")
-                            .font(.caption)
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(AppTheme.pillBackgroundColor)
-                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                }
+                ProfileDropdownButton()
+                    .padding(.leading, 8)
                 .menuStyle(.borderlessButton)
-                .frame(maxWidth: 150)
-                .padding(.leading, 12)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .padding(.leading, 8)
+
             }
-            
-            Spacer()
-            
-            TitleBarButton(systemName: "xmark", action: onClose, tintColor: AppTheme.secondaryTextColor, yOffset: -2)
         }
-        .padding(.horizontal)
-        .frame(height: 50)
+        
+        Spacer()
+        
+        TitleBarButton(systemName: "xmark", action: onClose, tintColor: AppTheme.secondaryTextColor(for: colorScheme), yOffset: -2)
     }
+    .padding(.horizontal)
+    .frame(height: 50)
+}
 }
 
+
 struct HelpSection<Content: View>: View {
+    @Environment(\.colorScheme) private var colorScheme
     var title: String
     @ViewBuilder var content: Content
 
@@ -153,20 +155,29 @@ struct HelpSection<Content: View>: View {
             Text(title)
                 .lineLimit(1)
                 .font(.title2.weight(.bold))
-                .foregroundColor(AppTheme.primaryTextColor)
+                .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
                 .padding(.bottom, 4)
 
             content
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(20)
-        .background(VisualEffectBlur())
+        .background(
+            ZStack {
+                if colorScheme == .light {
+                    AppTheme.cardBackgroundColor(for: colorScheme)
+                } else {
+                    VisualEffectBlur()
+                }
+            }
+        )
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous).stroke(AppTheme.primaryTextColor.opacity(0.3), lineWidth: 0.7))
+        .overlay(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous).stroke(Color.primary.opacity(colorScheme == .dark ? 0.3 : 0.1), lineWidth: 0.7))
     }
 }
 
 struct CustomSegmentedPicker<T: Hashable & CaseIterable & RawRepresentable>: View where T.RawValue == String {
+    @Environment(\.colorScheme) private var colorScheme
     let title: String
     @Binding var selection: T
     private var namespace: Namespace.ID
@@ -187,12 +198,12 @@ struct CustomSegmentedPicker<T: Hashable & CaseIterable & RawRepresentable>: Vie
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .frame(maxWidth: .infinity)
-                    .foregroundColor(selection == option ? AppTheme.primaryTextColor : AppTheme.secondaryTextColor)
+                    .foregroundColor(selection == option ? AppTheme.primaryTextColor(for: colorScheme) : AppTheme.secondaryTextColor(for: colorScheme))
                     .background(
                         ZStack {
                             if selection == option {
                                 RoundedRectangle(cornerRadius: cornerRadius - containerPadding, style: .continuous)
-                                    .fill(AppTheme.accentColor1)
+                                    .fill(AppTheme.accentColor1(for: colorScheme))
                                     .matchedGeometryEffect(id: "picker-highlight", in: namespace)
                             }
                         }
@@ -206,17 +217,18 @@ struct CustomSegmentedPicker<T: Hashable & CaseIterable & RawRepresentable>: Vie
             }
         }
         .padding(containerPadding)
-        .background(AppTheme.pickerBackgroundColor)
+        .background(AppTheme.pickerBackgroundColor(for: colorScheme))
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 }
 
 struct PillCard<Content: View>: View {
+    @Environment(\.colorScheme) private var colorScheme
     let content: Content
-    let backgroundColor: Color
+    let backgroundColor: Color?
     let cornerRadius: CGFloat
 
-    init(@ViewBuilder content: () -> Content, backgroundColor: Color, cornerRadius: CGFloat) {
+    init(@ViewBuilder content: () -> Content, backgroundColor: Color? = nil, cornerRadius: CGFloat) {
         self.content = content()
         self.backgroundColor = backgroundColor
         self.cornerRadius = cornerRadius
@@ -226,10 +238,39 @@ struct PillCard<Content: View>: View {
         content
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
-            .background(backgroundColor)
+            .background(backgroundColor ?? AppTheme.pillBackgroundColor(for: colorScheme))
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 }
+
+struct CustomSwitchToggleStyle: ToggleStyle {
+    @Environment(\.colorScheme) private var colorScheme
+
+    func makeBody(configuration: Configuration) -> some View {
+        HStack {
+            configuration.label
+            Spacer()
+            ZStack {
+                Capsule()
+                    .frame(width: 44, height: 26)
+                    .foregroundColor(configuration.isOn ? AppTheme.accentColor1(for: colorScheme) : AppTheme.pillBackgroundColor(for: colorScheme))
+                
+                Circle()
+                    .frame(width: 22, height: 22)
+                    .foregroundColor(.white)
+                    .shadow(radius: 1, x: 0, y: 1)
+                    .offset(x: configuration.isOn ? 9 : -9)
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
+                    configuration.isOn.toggle()
+                }
+            }
+        }
+    }
+}
+
 
 // MARK: - Custom TextField
 class CursorAtEndTextField: NSTextField {
@@ -271,6 +312,63 @@ struct URLTextField: NSViewRepresentable {
     func updateNSView(_ nsView: NSTextField, context: Context) {
         if nsView.stringValue != text {
             nsView.stringValue = text
+        }
+    }
+}
+
+struct ProfileDropdownButton: View {
+    @EnvironmentObject var settings: SettingsManager
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var showMenu = false
+    @State private var buttonFrame: CGRect = .zero
+
+    var body: some View {
+        Button(action: {
+            showMenu.toggle()
+        }) {
+            HStack(spacing: 6) {
+                Text(settings.currentProfile.wrappedValue.name)
+                    .lineLimit(1)
+                    .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(AppTheme.secondaryTextColor(for: colorScheme))
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(AppTheme.pillBackgroundColor(for: colorScheme))
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .background(GeometryReader { geo in
+                Color.clear.onAppear {
+                    buttonFrame = geo.frame(in: .global)
+                }
+            })
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $showMenu, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(settings.profiles) { profile in
+                    Button(action: {
+                        settings.currentProfileID = profile.id
+                        showMenu = false
+                    }) {
+                        HStack {
+                            if profile.id == settings.currentProfileID {
+                                Label(profile.name, systemImage: "checkmark")
+                            } else {
+                                Text(profile.name)
+                            }
+                            Spacer()
+                        }
+                        .padding(6)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .frame(width: max(buttonFrame.width, 160))
+            .padding(4)
+            .background(AppTheme.cardBackgroundColor(for: colorScheme))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
     }
 }

@@ -1,12 +1,11 @@
-// Views.swift
-
+//Views.swift
 import SwiftUI
 import AppKit
 import Sparkle
 
 // MARK: - Navigation Enums
 enum SheetType: Identifiable, Equatable {
-    case addURL, addFile, addScript, addShortcut
+    case addURL, addFile, addScript, addShortcut, addApp
     case editURL(assignment: Assignment)
     case editScript(assignment: Assignment)
     case editFile(assignment: Assignment)
@@ -17,6 +16,7 @@ enum SheetType: Identifiable, Equatable {
         case .addFile: "addFile"
         case .addScript: "addScript"
         case .addShortcut: "addShortcut"
+        case .addApp: "addApp"
         case .editURL(let assignment): "editURL-\(assignment.id)"
         case .editScript(let assignment): "editScript-\(assignment.id)"
         case .editFile(let assignment): "editFile-\(assignment.id)"
@@ -28,19 +28,21 @@ enum SheetType: Identifiable, Equatable {
     }
 }
 
-enum AppPage {
+enum AppPage: Hashable {
     case welcome, settings, help, appSettings
 }
 
 // MARK: - Custom View Modifiers
 struct PillButton: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+    
     func body(content: Content) -> some View {
         content
             .fontWeight(.semibold)
             .padding(.vertical, 8)
             .padding(.horizontal, 12)
             .frame(maxWidth: .infinity)
-            .background(AppTheme.pillBackgroundColor)
+            .background(AppTheme.pillBackgroundColor(for: colorScheme))
             .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
             .contentShape(Rectangle())
     }
@@ -52,31 +54,48 @@ struct MenuView: View {
     @ObservedObject var launchManager: LaunchAtLoginManager
     @ObservedObject var updaterViewModel: UpdaterViewModel
     @EnvironmentObject var settings: SettingsManager
+    @Environment(\.colorScheme) private var colorScheme
     
-    @State private var currentPage: AppPage = .settings
+    @State private var currentPage: AppPage = .welcome
+    @State private var initialTabForMainView: AppPage = .settings
     @State private var didAppear = false
     
     var body: some View {
         ZStack {
             if currentPage == .welcome {
-                WelcomePage(onGetStarted: { withAnimation(.easeIn(duration: 0.3)) { currentPage = .settings } })
+                WelcomePage(
+                    onGetStarted: {
+                        initialTabForMainView = .settings
+                        settings.hasCompletedOnboarding = true
+                        withAnimation(.easeIn(duration: 0.3)) { currentPage = .settings }
+                    },
+                    onGoToHelp: {
+                        initialTabForMainView = .help
+                        settings.hasCompletedOnboarding = true
+                        withAnimation(.easeIn(duration: 0.3)) { currentPage = .settings }
+                    }
+                )
             } else {
                 MainTabView(
                     manager: manager,
                     launchManager: launchManager,
-                    updaterViewModel: updaterViewModel
+                    updaterViewModel: updaterViewModel,
+                    initialTab: initialTabForMainView
                 )
             }
         }
         .onAppear {
             if !didAppear {
-                if settings.hasCompletedOnboarding { currentPage = .settings }
-                else { currentPage = .welcome }
+                if settings.hasCompletedOnboarding {
+                    currentPage = .settings
+                } else {
+                    currentPage = .welcome
+                }
                 didAppear = true
             }
         }
         .frame(width: 450, height: 700)
-        .foregroundColor(AppTheme.primaryTextColor)
+        .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
     }
 }
@@ -86,19 +105,29 @@ struct MainTabView: View {
     @ObservedObject var launchManager: LaunchAtLoginManager
     @ObservedObject var updaterViewModel: UpdaterViewModel
     @EnvironmentObject var settings: SettingsManager
-    @State private var selectedTab: AppPage = .settings
+    @Environment(\.colorScheme) private var colorScheme
+    
+    @State private var selectedTab: AppPage
+
+    init(manager: AppHotKeyManager, launchManager: LaunchAtLoginManager, updaterViewModel: UpdaterViewModel, initialTab: AppPage) {
+        self.manager = manager
+        self.launchManager = launchManager
+        self.updaterViewModel = updaterViewModel
+        self._selectedTab = State(initialValue: initialTab)
+    }
     
     var body: some View {
         ZStack {
-            AppTheme.backgroundGradient.ignoresSafeArea()
+            AppTheme.background(for: colorScheme).ignoresSafeArea()
             
-            if selectedTab == .settings {
+            switch selectedTab {
+            case .settings:
                 MainSettingsView(manager: manager, showHelpPage: { selectedTab = .help }, showAppSettingsPage: { selectedTab = .appSettings })
                     .transition(.asymmetric(insertion: .move(edge: .leading), removal: .identity))
-            } else if selectedTab == .help {
+            case .help:
                 HelpView(goBack: { selectedTab = .settings })
                     .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)))
-            } else if selectedTab == .appSettings {
+            case .appSettings:
                 AppSettingsView(
                     manager: manager,
                     launchManager: launchManager,
@@ -106,10 +135,14 @@ struct MainTabView: View {
                     goBack: { selectedTab = .settings }
                 )
                 .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)))
+            case .welcome:
+                EmptyView()
             }
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: selectedTab)
-        .onReceive(NotificationCenter.default.publisher(for: .goToHelpPageInMainWindow)) { _ in selectedTab = .help }
+        .onReceive(NotificationCenter.default.publisher(for: .goToHelpPageInMainWindow)) { _ in
+            selectedTab = .help
+        }
     }
 }
 
@@ -118,6 +151,7 @@ struct MainSettingsView: View {
     @ObservedObject var manager: AppHotKeyManager
     @EnvironmentObject var settings: SettingsManager
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     
     var showHelpPage: () -> Void
     var showAppSettingsPage: () -> Void
@@ -131,9 +165,9 @@ struct MainSettingsView: View {
 
     var body: some View {
         ZStack {
-            AppTheme.backgroundGradient.ignoresSafeArea()
+            AppTheme.background(for: colorScheme).ignoresSafeArea()
             VStack(spacing: 0) {
-                CustomTitleBar(title: "WarpKey", onClose: { dismiss() })
+                CustomTitleBar(title: "WrapKey", onClose: { dismiss() })
                     .environmentObject(settings)
                 
                 ScrollView(showsIndicators: false) {
@@ -164,20 +198,29 @@ struct MainSettingsView: View {
                 ZStack {
                     Color.black.opacity(0.6).ignoresSafeArea().onTapGesture { manager.isListeningForAssignment = false }
                     VStack(spacing: 20) {
-                        ProgressView().progressViewStyle(.circular).tint(AppTheme.accentColor1)
-                        Text("Press a key to assign...").font(.title3).foregroundColor(AppTheme.primaryTextColor)
-                        Text("Only letter and number keys can be assigned.").font(.callout).foregroundColor(AppTheme.secondaryTextColor).multilineTextAlignment(.center)
+                        ProgressView().progressViewStyle(.circular).tint(AppTheme.accentColor1(for: colorScheme))
+                        Text("Press a key to assign...").font(.title3).foregroundColor(AppTheme.primaryTextColor(for: .dark))
+                        Text("Only letter and number keys can be assigned.").font(.callout).foregroundColor(AppTheme.secondaryTextColor(for: .dark)).multilineTextAlignment(.center)
                     }.padding(30).background(VisualEffectBlur().clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius))).shadow(radius: 20)
                 }.transition(.opacity)
             }
         }
         .sheet(item: $showingSheet) { item in
             switch item {
-            case .addURL: AddURLView { url in manager.listenForNewAssignment(target: .url(url)) }
-            case .addFile: AddFileView { path in manager.listenForNewAssignment(target: .file(path)) }
-            case .addScript: AddScriptView { command, runsInTerminal in manager.listenForNewAssignment(target: .script(command: command, runsInTerminal: runsInTerminal)) }
-            case .addShortcut: ShortcutPickerView { name in manager.listenForNewAssignment(target: .shortcut(name: name)) }
-            case .editURL, .editScript, .editFile: EmptyView()
+            case .addApp:
+                AppPickerView { bundleId in
+                    manager.listenForNewAssignment(target: .app(bundleId: bundleId))
+                }
+            case .addURL:
+                AddURLView { url in manager.listenForNewAssignment(target: .url(url)) }
+            case .addFile:
+                AddFileView { path in manager.listenForNewAssignment(target: .file(path)) }
+            case .addScript:
+                AddScriptView { command, runsInTerminal in manager.listenForNewAssignment(target: .script(command: command, runsInTerminal: runsInTerminal)) }
+            case .addShortcut:
+                ShortcutPickerView { name in manager.listenForNewAssignment(target: .shortcut(name: name)) }
+            case .editURL, .editScript, .editFile:
+                EmptyView()
             }
         }
     }
@@ -191,6 +234,7 @@ struct AppSettingsView: View {
     
     @EnvironmentObject var settings: SettingsManager
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     var goBack: () -> Void
     
     @State private var isShowingConfirmationAlert = false
@@ -201,27 +245,38 @@ struct AppSettingsView: View {
     @State private var profileToDelete: Profile?
     @State private var profileNameField = ""
 
+    @Namespace private var themePickerNamespace
     private let keyPressPublisher = NotificationCenter.default.publisher(for: .keyPressEvent)
+    
+    private var appVersion: String {
+        return Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "N/A"
+    }
 
     var body: some View {
         ZStack {
-            AppTheme.backgroundGradient.ignoresSafeArea()
+            AppTheme.background(for: colorScheme).ignoresSafeArea()
             VStack(spacing: 0) {
-                CustomTitleBar(title: "WarpKey Settings", showBackButton: true, onBack: goBack, onClose: { dismiss() })
+                CustomTitleBar(title: "WrapKey Settings", showBackButton: true, onBack: goBack, onClose: { dismiss() })
                     .environmentObject(settings)
                 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 20) {
                         
-                        HelpSection(title: "General App Settings") {
+                        HelpSection(title: "Appearance") {
+                            CustomSegmentedPicker(
+                                title: "Appearance",
+                                selection: $settings.colorScheme,
+                                in: themePickerNamespace
+                            )
+                        }
+                        
+                        HelpSection(title: "General") {
                             Toggle("Show Menu Bar Icon", isOn: $settings.showMenuBarIcon)
-                                .tint(AppTheme.accentColor1)
+                                .toggleStyle(CustomSwitchToggleStyle())
                             
                             Toggle("Launch at Login", isOn: $launchManager.isEnabled)
-                                .tint(AppTheme.accentColor1)
+                                .toggleStyle(CustomSwitchToggleStyle())
                         }
-                        .toggleStyle(.switch)
-                        .controlSize(.small)
 
                         HelpSection(title: "Profiles") {
                             VStack(spacing: 8) {
@@ -289,9 +344,7 @@ struct AppSettingsView: View {
                         
                         HelpSection(title: "Updates") {
                             Toggle("Check for updates automatically", isOn: $updaterViewModel.automaticallyChecksForUpdates)
-                                .tint(AppTheme.accentColor1)
-                                .toggleStyle(.switch)
-                                .controlSize(.small)
+                                .toggleStyle(CustomSwitchToggleStyle())
                             
                             Divider()
                                 .padding(.vertical, 4)
@@ -303,6 +356,16 @@ struct AppSettingsView: View {
                             .buttonStyle(.plain)
                             .disabled(!updaterViewModel.canCheckForUpdates)
                         }
+                        
+                        VStack(spacing: 4) {
+                            (Text("Made with ") + Text(Image(systemName: "heart.fill")).foregroundColor(AppTheme.accentColor1(for: colorScheme)) + Text(" by Musa Matini"))
+                            Text("The WrapKey App \(appVersion)")
+                        }
+                        .font(.caption)
+                        .foregroundColor(AppTheme.secondaryTextColor(for: colorScheme))
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.top, 10)
+
                     }
                     .padding()
                 }
@@ -311,10 +374,10 @@ struct AppSettingsView: View {
                 ZStack {
                     Color.black.opacity(0.6).ignoresSafeArea().onTapGesture { manager.isListeningForNewModifier = false }
                     VStack(spacing: 20) {
-                        ProgressView().progressViewStyle(.circular).tint(AppTheme.accentColor1)
-                        Text("Press any key...").font(.title3).foregroundColor(AppTheme.primaryTextColor)
+                        ProgressView().progressViewStyle(.circular).tint(AppTheme.accentColor1(for: colorScheme))
+                        Text("Press any key...").font(.title3).foregroundColor(AppTheme.primaryTextColor(for: .dark))
                         Text("You will be asked to confirm if you select a non-modifier key.")
-                            .font(.callout).foregroundColor(AppTheme.secondaryTextColor).multilineTextAlignment(.center)
+                            .font(.callout).foregroundColor(AppTheme.secondaryTextColor(for: .dark)).multilineTextAlignment(.center)
                     }.padding(30).background(VisualEffectBlur().clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius))).shadow(radius: 20)
                 }.transition(.opacity)
             }
@@ -356,7 +419,7 @@ struct AppSettingsView: View {
     }
     
     private func exportSettings() {
-        let savePanel = NSSavePanel(); savePanel.allowedContentTypes = [.json]; savePanel.nameFieldStringValue = "WarpKey_Settings.json"
+        let savePanel = NSSavePanel(); savePanel.allowedContentTypes = [.json]; savePanel.nameFieldStringValue = "WrapKey_Settings.json"
         if savePanel.runModal() == .OK, let url = savePanel.url {
             do {
                 let encoder = JSONEncoder(); encoder.outputFormatting = .prettyPrinted
@@ -387,7 +450,7 @@ struct AppSettingsView: View {
                 }
                 settings.profiles = validatedProfiles; settings.currentProfileID = validatedProfiles.first?.id ?? UUID()
                 NotificationManager.shared.sendNotification(title: "Import Complete", body: "\(validShortcutsCount) shortcuts imported. \(skippedShortcutsCount) for missing apps were skipped.")
-            } catch { NotificationManager.shared.sendNotification(title: "Import Failed", body: "The selected file is not a valid WarpKey settings file.") }
+            } catch { NotificationManager.shared.sendNotification(title: "Import Failed", body: "The selected file is not a valid WrapKey settings file.") }
         }
     }
 }
@@ -395,18 +458,21 @@ struct AppSettingsView: View {
 // MARK: - Welcome Screen
 struct WelcomePage: View {
     @EnvironmentObject var settings: SettingsManager
+    @Environment(\.colorScheme) private var colorScheme
     var onGetStarted: () -> Void
+    var onGoToHelp: () -> Void
+    
     @State private var isShowingContent = false
     private let donationURL = URL(string: "https://www.patreon.com/MusaMatini")!
-    private let githubURL = URL(string: "https://github.com/musamatini/WarpKey")!
+    private let githubURL = URL(string: "https://github.com/musamatini/WrapKey")!
     
     var body: some View {
         VStack(spacing: 0) {
             Spacer(minLength: 20)
             VStack(spacing: 35) {
                 VStack(spacing: 15) {
-                    Image(systemName: "sparkles").font(.system(size: 50, weight: .bold)).symbolRenderingMode(.monochrome).foregroundStyle(AppTheme.accentColor1)
-                    Text("Welcome to WarpKey").font(.system(size: 32, weight: .bold, design: .rounded))
+                    Image(systemName: "sparkles").font(.system(size: 50, weight: .bold)).symbolRenderingMode(.monochrome).foregroundStyle(AppTheme.accentColor1(for: colorScheme))
+                    Text("Welcome to WrapKey").font(.system(size: 32, weight: .bold, design: .rounded))
                 }.opacity(isShowingContent ? 1 : 0).animation(.easeInOut(duration: 0.7), value: isShowingContent)
                 
                 VStack(alignment: .leading, spacing: 25) {
@@ -414,23 +480,23 @@ struct WelcomePage: View {
                     WelcomeActionRow(icon: "bolt.horizontal.circle.fill", title: "Use a Shortcut", subtitle: "Press **[Trigger Key] + [Letter]** to launch, hide, or run your shortcut.")
                 }.padding(.horizontal, 40).opacity(isShowingContent ? 1 : 0).animation(.easeInOut(duration: 0.7).delay(0.1), value: isShowingContent)
                 
-                (Text("Check the ") + Text("How to Use").bold().foregroundColor(AppTheme.accentColor1).underline() + Text(" page for more info."))
-                    .font(.callout).foregroundColor(AppTheme.secondaryTextColor).multilineTextAlignment(.center).lineSpacing(5)
-                    .onTapGesture { NotificationCenter.default.post(name: .goToHelpPageInMainWindow, object: nil); settings.hasCompletedOnboarding = true; onGetStarted() }
+                (Text("Check the ") + Text("How to Use").bold().foregroundColor(AppTheme.accentColor1(for: colorScheme)).underline() + Text(" page for more info."))
+                    .font(.callout).foregroundColor(AppTheme.secondaryTextColor(for: colorScheme)).multilineTextAlignment(.center).lineSpacing(5)
+                    .onTapGesture { onGoToHelp() }
                     .opacity(isShowingContent ? 1 : 0).animation(.easeInOut(duration: 0.7).delay(0.2), value: isShowingContent)
                 
                 VStack(spacing: 18) {
                     Link(destination: githubURL) { HStack(spacing: 8) { Image(systemName: "ant.circle.fill"); Text("Report a bug or suggest a feature") } }
                     Link(destination: donationURL) { HStack(spacing: 8) { Image(systemName: "heart.circle.fill"); Text("Support me and the project") } }
-                }.font(.callout).buttonStyle(.plain).foregroundColor(AppTheme.secondaryTextColor.opacity(0.8))
+                }.font(.callout).buttonStyle(.plain).foregroundColor(AppTheme.secondaryTextColor(for: colorScheme).opacity(0.8))
                  .opacity(isShowingContent ? 1 : 0).animation(.easeInOut(duration: 0.7).delay(0.3), value: isShowingContent)
             }
             Spacer()
-            Button(action: { settings.hasCompletedOnboarding = true; onGetStarted() }) {
-                Text("Continue to App").font(.headline.weight(.semibold)).padding(.horizontal, 40).padding(.vertical, 14).foregroundColor(AppTheme.primaryTextColor).background(AppTheme.accentColor1).cornerRadius(50)
+            Button(action: onGetStarted) {
+                Text("Continue to App").font(.headline.weight(.semibold)).padding(.horizontal, 40).padding(.vertical, 14).foregroundColor(AppTheme.primaryTextColor(for: colorScheme)).background(AppTheme.accentColor1(for: colorScheme)).cornerRadius(50)
             }.buttonStyle(.plain).opacity(isShowingContent ? 1 : 0).animation(.easeInOut(duration: 0.7).delay(0.4), value: isShowingContent).padding(.bottom, 50)
         }
-        .frame(width: 450, height: 700).foregroundColor(AppTheme.primaryTextColor).background(AppTheme.backgroundGradient.ignoresSafeArea())
+        .frame(width: 450, height: 700).foregroundColor(AppTheme.primaryTextColor(for: colorScheme)).background(AppTheme.background(for: colorScheme).ignoresSafeArea())
         .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { self.isShowingContent = true } }
     }
 }
@@ -440,6 +506,7 @@ struct HelpView: View {
     var goBack: () -> Void
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var settings: SettingsManager
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         VStack(spacing: 0) {
@@ -474,12 +541,13 @@ struct HelpView: View {
                 .padding()
             }
         }
-        .foregroundColor(AppTheme.primaryTextColor)
+        .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
     }
 }
 
 // MARK: - Reusable View Components
 struct ProfileRowView: View {
+    @Environment(\.colorScheme) private var colorScheme
     let profile: Profile
     let isSelected: Bool
 
@@ -487,53 +555,56 @@ struct ProfileRowView: View {
         HStack {
             Text(profile.name)
                 .lineLimit(1)
-                .foregroundColor(AppTheme.primaryTextColor)
+                .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
                 .fontWeight(isSelected ? .semibold : .regular)
             
             Spacer()
             
             if isSelected {
                 Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(AppTheme.accentColor1)
+                    .foregroundColor(AppTheme.accentColor1(for: colorScheme))
                     .transition(.scale.animation(.spring()))
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(
-            (isSelected ? AppTheme.accentColor1.opacity(0.25) : AppTheme.pillBackgroundColor)
+            (isSelected ? AppTheme.accentColor1(for: colorScheme).opacity(0.25) : AppTheme.pillBackgroundColor(for: colorScheme))
                 .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
         )
     }
 }
 
 struct WelcomeActionRow: View {
+    @Environment(\.colorScheme) private var colorScheme
     let icon: String; let title: String; let subtitle: String
     var body: some View {
         HStack(spacing: 16) {
-            Image(systemName: icon).font(.title2).foregroundColor(AppTheme.accentColor1).frame(width: 30)
+            Image(systemName: icon).font(.title2).foregroundColor(AppTheme.accentColor1(for: colorScheme)).frame(width: 30)
             VStack(alignment: .leading, spacing: 3) {
-                Text(title).fontWeight(.semibold).foregroundColor(AppTheme.primaryTextColor)
-                Text(.init(subtitle)).font(.callout).foregroundColor(AppTheme.secondaryTextColor)
+                Text(title).fontWeight(.semibold).foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
+                Text(.init(subtitle)).font(.callout).foregroundColor(AppTheme.secondaryTextColor(for: colorScheme))
             }
         }
     }
 }
 
 struct HelpDetailRow: View {
+    @Environment(\.colorScheme) private var colorScheme
     let icon: String; let title: String; let subtitle: String
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
-            Image(systemName: icon).font(.title).foregroundColor(AppTheme.accentColor1).frame(width: 40, alignment: .center)
+            Image(systemName: icon).font(.title).foregroundColor(AppTheme.accentColor1(for: colorScheme)).frame(width: 40, alignment: .center)
             VStack(alignment: .leading, spacing: 4) {
-                Text(title).fontWeight(.semibold).foregroundColor(AppTheme.primaryTextColor)
-                Text(.init(subtitle)).font(.callout).foregroundColor(AppTheme.secondaryTextColor).lineSpacing(4)
+                Text(title).fontWeight(.semibold).foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
+                Text(.init(subtitle)).font(.callout).foregroundColor(AppTheme.secondaryTextColor(for: colorScheme)).lineSpacing(4)
             }
         }
     }
 }
 
 struct CategoryHeader: View {
+    @Environment(\.colorScheme) private var colorScheme
     let category: ShortcutCategory
     var body: some View {
         HStack {
@@ -544,24 +615,31 @@ struct CategoryHeader: View {
         .font(.headline.weight(.bold))
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
-        .background(AppTheme.deepForestGreen.opacity(0.8))
-        .foregroundColor(AppTheme.primaryTextColor)
+        .background {
+            if colorScheme == .dark {
+                AppTheme.background(for: .dark)
+            } else {
+                AppTheme.pillBackgroundColor(for: .light)
+            }
+        }
+        .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
         .cornerRadius(8)
     }
 }
 
 struct ModifierKeySelectorRow: View {
+    @Environment(\.colorScheme) private var colorScheme
     let title: String; let currentKeyDisplayName: String; let isListening: Bool; let action: () -> Void
     var body: some View {
         HStack {
             Text(title).fontWeight(.semibold)
             Spacer()
             if isListening {
-                ProgressView().progressViewStyle(.circular).tint(AppTheme.accentColor1)
+                ProgressView().progressViewStyle(.circular).tint(AppTheme.accentColor1(for: colorScheme))
             } else {
-                PillCard(content: { Text(currentKeyDisplayName).font(.system(.body, design: .monospaced).weight(.semibold)).lineLimit(1).minimumScaleFactor(0.7).padding(.horizontal, 4) }, backgroundColor: AppTheme.pillBackgroundColor, cornerRadius: AppTheme.cornerRadius)
+                PillCard(content: { Text(currentKeyDisplayName).font(.system(.body, design: .monospaced).weight(.semibold)).lineLimit(1).minimumScaleFactor(0.7).padding(.horizontal, 4) }, cornerRadius: AppTheme.cornerRadius)
                 Button(action: action) {
-                    PillCard(content: { Image(systemName: "pencil.circle.fill").font(.system(.body, design: .monospaced).weight(.semibold)).foregroundColor(AppTheme.accentColor1) }, backgroundColor: AppTheme.pillBackgroundColor, cornerRadius: AppTheme.cornerRadius)
+                    PillCard(content: { Image(systemName: "pencil.circle.fill").font(.system(.body, design: .monospaced).weight(.semibold)).foregroundColor(AppTheme.accentColor1(for: colorScheme)) }, cornerRadius: AppTheme.cornerRadius)
                 }.buttonStyle(.plain)
             }
         }.padding(.horizontal, 8).frame(maxWidth: .infinity)
@@ -570,14 +648,19 @@ struct ModifierKeySelectorRow: View {
 
 struct EmptyStateView: View {
     @EnvironmentObject var settings: SettingsManager
+    @Environment(\.colorScheme) private var colorScheme
+    
     var body: some View {
         VStack(spacing: 16) {
             Spacer()
-            Image(systemName: "sparkles.square.filled.on.square").font(.system(size: 50)).symbolRenderingMode(.palette).foregroundStyle(AppTheme.accentColor1, AppTheme.mistyWhite)
+            Image(systemName: "sparkles.square.filled.on.square")
+                .font(.system(size: 50))
+                .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
+                .opacity(0.8)
             VStack(spacing: 4) {
                 Text("No Shortcuts Yet").font(.title3.weight(.bold))
                 Text("Use the **+ Add Shortcut** button to begin\nor assign an app with **\(settings.currentProfile.wrappedValue.secondaryModifier.displayName) + \(settings.currentProfile.wrappedValue.triggerModifiers[.app]!.displayName) + [Letter]**")
-                    .font(.callout).foregroundColor(AppTheme.secondaryTextColor).multilineTextAlignment(.center).lineSpacing(4)
+                    .font(.callout).foregroundColor(AppTheme.secondaryTextColor(for: colorScheme)).multilineTextAlignment(.center).lineSpacing(4)
             }
             Spacer()
         }.padding().frame(maxWidth: .infinity)
@@ -588,6 +671,7 @@ struct EmptyStateView: View {
 struct AssignmentRow: View {
     @ObservedObject var manager: AppHotKeyManager
     @EnvironmentObject var settings: SettingsManager
+    @Environment(\.colorScheme) private var colorScheme
     
     let assignment: Assignment
     @Namespace private var pickerNamespace
@@ -627,7 +711,7 @@ struct AssignmentRow: View {
                 }
                 Spacer()
                 
-                PillCard(content: { Text("\(settings.triggerModifier(for: assignment.configuration.target).symbol) + \(manager.keyString(for: assignment.keyCode))").font(.system(.body, design: .monospaced).weight(.semibold)) }, backgroundColor: AppTheme.pillBackgroundColor, cornerRadius: AppTheme.cornerRadius)
+                PillCard(content: { Text("\(settings.triggerModifier(for: assignment.configuration.target).symbol) + \(manager.keyString(for: assignment.keyCode))").font(.system(.body, design: .monospaced).weight(.semibold)) }, cornerRadius: AppTheme.cornerRadius)
                 
                 Button(action: {
                     if isEditable {
@@ -636,11 +720,11 @@ struct AssignmentRow: View {
                         manager.listenForNewAssignment(target: assignment.configuration.target, assignmentID: assignment.id)
                     }
                 }) {
-                    PillCard(content: { Image(systemName: "pencil.circle.fill").font(.system(.body, design: .monospaced).weight(.semibold)).foregroundColor(AppTheme.accentColor1) }, backgroundColor: AppTheme.pillBackgroundColor, cornerRadius: AppTheme.cornerRadius)
+                    PillCard(content: { Image(systemName: "pencil.circle.fill").font(.system(.body, design: .monospaced).weight(.semibold)).foregroundColor(AppTheme.accentColor1(for: colorScheme)) }, cornerRadius: AppTheme.cornerRadius)
                 }.buttonStyle(.plain)
                 
                 Button(action: { settings.currentProfile.wrappedValue.assignments.removeAll(where: { $0.id == assignment.id }) }) {
-                    PillCard(content: { Image(systemName: "trash.fill").font(.system(.body, design: .monospaced).weight(.semibold)).foregroundColor(AppTheme.secondaryTextColor) }, backgroundColor: AppTheme.pillBackgroundColor, cornerRadius: AppTheme.cornerRadius)
+                    PillCard(content: { Image(systemName: "trash.fill").font(.system(.body, design: .monospaced).weight(.semibold)).foregroundColor(AppTheme.secondaryTextColor(for: colorScheme)) }, cornerRadius: AppTheme.cornerRadius)
                 }.buttonStyle(.plain)
             }
             
@@ -663,7 +747,7 @@ struct AssignmentRow: View {
             }
         }
         .padding(12).background(BlurredBackgroundView()).clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous).stroke(isConflicting ? Color.yellow : AppTheme.primaryTextColor.opacity(0.3), lineWidth: isConflicting ? 1.5 : 0.5))
+        .overlay(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous).stroke(isConflicting ? Color.yellow : Color.primary.opacity(colorScheme == .dark ? 0.3 : 0.1), lineWidth: isConflicting ? 1.5 : 0.5))
         .animation(.easeInOut, value: isConflicting)
         .confirmationDialog("Edit Shortcut", isPresented: $showingEditOptions, titleVisibility: .visible) {
             Button("Change Hotkey") {
@@ -724,13 +808,15 @@ struct AssignmentRow: View {
 struct ShortcutIcon: View {
     let target: ShortcutTarget
     @ObservedObject var manager: AppHotKeyManager
+    @Environment(\.colorScheme) private var colorScheme
+    
     var body: some View {
         switch target {
         case .app(let bundleId): if let icon = manager.getAppIcon(for: bundleId) { Image(nsImage: icon).resizable() } else { Image(systemName: "app.dashed").font(.system(size: 28)) }
-        case .url: Image(systemName: "globe").font(.system(size: 28)).foregroundColor(AppTheme.accentColor2)
-        case .file: Image(systemName: "doc").font(.system(size: 28)).foregroundColor(AppTheme.accentColor2)
-        case .script: Image(systemName: "terminal").font(.system(size: 28)).foregroundColor(AppTheme.accentColor2)
-        case .shortcut: Image(systemName: "square.stack.3d.up.fill").font(.system(size: 28)).foregroundColor(AppTheme.accentColor2)
+        case .url: Image(systemName: "globe").font(.system(size: 28)).foregroundColor(AppTheme.accentColor2(for: colorScheme))
+        case .file: Image(systemName: "doc").font(.system(size: 28)).foregroundColor(AppTheme.accentColor2(for: colorScheme))
+        case .script: Image(systemName: "terminal").font(.system(size: 28)).foregroundColor(AppTheme.accentColor2(for: colorScheme))
+        case .shortcut: Image(systemName: "square.stack.3d.up.fill").font(.system(size: 28)).foregroundColor(AppTheme.accentColor2(for: colorScheme))
         }
     }
 }
@@ -751,6 +837,8 @@ struct ShortcutTitle: View {
 
 struct ShortcutSubtitle: View {
     let target: ShortcutTarget
+    @Environment(\.colorScheme) private var colorScheme
+    
     var body: some View {
         let text: String = {
             switch target {
@@ -761,7 +849,7 @@ struct ShortcutSubtitle: View {
             case .shortcut: return "macOS Shortcut"
             }
         }()
-        Text(text).font(.caption).foregroundColor(AppTheme.secondaryTextColor).truncationMode(.middle).lineLimit(1)
+        Text(text).font(.caption).foregroundColor(AppTheme.secondaryTextColor(for: colorScheme)).truncationMode(.middle).lineLimit(1)
     }
 }
 
@@ -942,19 +1030,23 @@ struct ShortcutPickerView: View {
                 .padding()
 
             if isLoading {
-                ProgressView()
-                    .progressViewStyle(.circular)
-                    .scaleEffect(1.5)
-                    .padding(.top, 40)
-                Spacer()
+                VStack {
+                    Spacer()
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                        .scaleEffect(1.5)
+                    Spacer()
+                }
             } else if allShortcuts.isEmpty {
-                Text("No Shortcuts Found")
-                    .foregroundColor(.secondary)
-                    .padding(.top, 40)
-                Text("Create shortcuts in the Shortcuts app.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Spacer()
+                VStack {
+                    Spacer()
+                    Text("No Shortcuts Found")
+                        .foregroundColor(.secondary)
+                    Text("Create shortcuts in the Shortcuts app.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
             } else {
                 List(filteredShortcuts, id: \.self) { shortcutName in
                     Button(action: {
@@ -967,9 +1059,12 @@ struct ShortcutPickerView: View {
                             Image(systemName: "chevron.right")
                                 .foregroundColor(.secondary)
                         }
+                        .padding(.vertical, 8)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }
+                .listStyle(.plain)
                 .searchable(text: $searchText, prompt: "Search Shortcuts")
             }
         }
@@ -983,10 +1078,132 @@ struct ShortcutPickerView: View {
     }
 }
 
+struct AppInfo: Identifiable, Hashable {
+    let id: String
+    let name: String
+    let icon: NSImage
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+
+    static func == (lhs: AppInfo, rhs: AppInfo) -> Bool {
+        lhs.id == rhs.id
+    }
+}
+
+struct AppPickerView: View {
+    var onSave: (String) -> Void
+    @Environment(\.dismiss) var dismiss
+
+    @State private var allApps: [AppInfo] = []
+    @State private var searchText = ""
+    @State private var isLoading = true
+
+    private var filteredApps: [AppInfo] {
+        if searchText.isEmpty {
+            return allApps
+        } else {
+            return allApps.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Text("Select an Application")
+                .font(.title2.weight(.bold))
+                .padding()
+
+            if isLoading {
+                VStack {
+                    Spacer()
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                        .scaleEffect(1.5)
+                    Spacer()
+                }
+            } else if allApps.isEmpty {
+                VStack {
+                    Spacer()
+                    Text("No Applications Found")
+                        .foregroundColor(.secondary)
+                    Text("Could not find any applications in standard directories.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+            } else {
+                List(filteredApps, id: \.id) { app in
+                    Button(action: {
+                        onSave(app.id)
+                        dismiss()
+                    }) {
+                        HStack(spacing: 12) {
+                            Image(nsImage: app.icon)
+                                .resizable()
+                                .frame(width: 32, height: 32)
+                            Text(app.name)
+                                .lineLimit(1)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.vertical, 6)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .listStyle(.plain)
+                .searchable(text: $searchText, prompt: "Search Applications")
+            }
+        }
+        .frame(width: 400, height: 500)
+        .onAppear {
+            loadApps()
+        }
+    }
+
+    private func loadApps() {
+        DispatchQueue.global(qos: .userInitiated).async {
+            var discoveredApps = [String: AppInfo]()
+            let fileManager = FileManager.default
+            let appDirectories = [
+                "/Applications",
+                "/System/Applications",
+                "\(NSHomeDirectory())/Applications"
+            ]
+
+            for dirPath in appDirectories {
+                let dirUrl = URL(fileURLWithPath: dirPath)
+                if let urls = try? fileManager.contentsOfDirectory(at: dirUrl, includingPropertiesForKeys: [], options: .skipsHiddenFiles) {
+                    for url in urls where url.pathExtension == "app" {
+                        if let bundle = Bundle(url: url), let bundleId = bundle.bundleIdentifier {
+                            if discoveredApps[bundleId] == nil && !bundleId.starts(with: "com.apple.dt.") && bundleId != Bundle.main.bundleIdentifier {
+                                let appName = (bundle.object(forInfoDictionaryKey: kCFBundleNameKey as String) as? String) ?? url.deletingPathExtension().lastPathComponent
+                                let icon = NSWorkspace.shared.icon(forFile: url.path)
+                                discoveredApps[bundleId] = AppInfo(id: bundleId, name: appName, icon: icon)
+                            }
+                        }
+                    }
+                }
+            }
+            
+            let sortedApps = discoveredApps.values.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            
+            DispatchQueue.main.async {
+                self.allApps = sortedApps
+                self.isLoading = false
+            }
+        }
+    }
+}
+
 
 // MARK: - Footer View
 struct FooterView: View {
     @EnvironmentObject var settings: SettingsManager
+    @Environment(\.colorScheme) private var colorScheme
+    
     @State private var isShowingClearConfirmation = false
     var onShowHelp: () -> Void
     var onShowAppSettings: () -> Void
@@ -997,12 +1214,7 @@ struct FooterView: View {
         VStack(spacing: 10) {
             HStack {
                 Menu {
-                    Button("Add App") {
-                        let secondaryKeyName = settings.currentProfile.wrappedValue.secondaryModifier.displayName
-                        let triggerKeyName = settings.currentProfile.wrappedValue.triggerModifiers[.app]!.displayName
-                        let bodyText = "To assign an app, bring it to the front and press: \(secondaryKeyName) + \(triggerKeyName) + [Any Letter]."
-                        NotificationManager.shared.sendNotification(title: "How to Assign an App", body: bodyText)
-                    }
+                    Button("Add App") { sheetType = .addApp }
                     Button("Add macOS Shortcut") { sheetType = .addShortcut }
                     Button("Add URL") { sheetType = .addURL }
                     Button("Add File/Folder") { sheetType = .addFile }
@@ -1010,7 +1222,7 @@ struct FooterView: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "plus")
-                            .foregroundColor(AppTheme.accentColor1)
+                            .foregroundColor(AppTheme.accentColor1(for: colorScheme))
                             .font(.system(size: 16, weight: .semibold))
                         Text("Add Shortcut")
                     }
@@ -1020,7 +1232,7 @@ struct FooterView: View {
                     HStack(spacing: 8) {
                         Text("App Settings")
                         Image(systemName: "gearshape.fill")
-                            .foregroundColor(AppTheme.accentColor1)
+                            .foregroundColor(AppTheme.accentColor1(for: colorScheme))
                             .font(.system(size: 16, weight: .semibold))
                     }
                 }
@@ -1030,7 +1242,7 @@ struct FooterView: View {
                 Button(action: onShowHelp) {
                     HStack(spacing: 8) {
                         Image(systemName: "questionmark.circle.fill")
-                            .foregroundColor(AppTheme.accentColor1)
+                            .foregroundColor(AppTheme.accentColor1(for: colorScheme))
                             .font(.system(size: 16, weight: .semibold))
                         Text("How to Use")
                     }
@@ -1040,7 +1252,7 @@ struct FooterView: View {
                     HStack(spacing: 8) {
                         Text("Support Me")
                         Image(systemName: "heart.circle.fill")
-                            .foregroundColor(AppTheme.accentColor1)
+                            .foregroundColor(AppTheme.accentColor1(for: colorScheme))
                             .font(.system(size: 16, weight: .semibold))
                     }
                 }
@@ -1051,13 +1263,22 @@ struct FooterView: View {
                     isShowingClearConfirmation = true
                 }.disabled(settings.currentProfile.wrappedValue.assignments.isEmpty)
                 Spacer()
-                Button("Quit WarpKey") { NSApplication.shared.terminate(nil) }
+                Button("Quit WrapKey") { NSApplication.shared.terminate(nil) }
             }
         }
-        .font(.body).buttonStyle(.plain).foregroundColor(AppTheme.primaryTextColor)
-        .padding(16).background(VisualEffectBlur().overlay(Color.black.opacity(0.1)))
+        .font(.body).buttonStyle(.plain).foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
+        .padding(16).background(
+            ZStack {
+                if colorScheme == .light {
+                    AppTheme.cardBackgroundColor(for: .light)
+                } else {
+                    VisualEffectBlur()
+                }
+            }
+            .overlay(Color.black.opacity(colorScheme == .dark ? 0.1 : 0))
+        )
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous).stroke(AppTheme.primaryTextColor.opacity(0.3), lineWidth: 0.7))
+        .overlay(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous).stroke(Color.primary.opacity(colorScheme == .dark ? 0.3 : 0.1), lineWidth: 0.7))
         .padding(.horizontal, 10).padding(.bottom, 10).padding(.top, -134)
         .alert("Clear All Shortcuts in Profile?", isPresented: $isShowingClearConfirmation) {
             Button("Clear \"\(settings.currentProfile.wrappedValue.name)\"", role: .destructive) { settings.currentProfile.wrappedValue.assignments.removeAll() }

@@ -2,6 +2,12 @@ import SwiftUI
 import Combine
 
 // MARK: - Data Models
+enum ColorSchemeSetting: String, Codable, CaseIterable {
+    case auto = "Auto"
+    case light = "Light"
+    case dark = "Dark"
+}
+
 enum ShortcutCategory: String, CaseIterable, Codable, Hashable, Identifiable {
     case app = "Apps"
     case shortcut = "Shortcuts"
@@ -39,10 +45,11 @@ struct Profile: Codable, Identifiable, Hashable {
 // MARK: - Settings Manager
 class SettingsManager: ObservableObject {
     // MARK: - Keys
-    private let profilesKey = "WarpKey_Profiles_v4"
-    private let currentProfileIDKey = "WarpKey_CurrentProfileID_v2"
+    private let profilesKey = "WrapKey_Profiles_v4"
+    private let currentProfileIDKey = "WrapKey_CurrentProfileID_v2"
     private let menuBarIconKey = "showMenuBarIcon_v1"
     private let onboardingKey = "hasCompletedOnboarding_v1"
+    private let colorSchemeKey = "WrapKey_ColorScheme_v1"
 
     // MARK: - Published Properties
     @Published var profiles: [Profile] {
@@ -63,6 +70,14 @@ class SettingsManager: ObservableObject {
     @Published var hasCompletedOnboarding: Bool {
         didSet { UserDefaults.standard.set(hasCompletedOnboarding, forKey: onboardingKey) }
     }
+    
+    @Published var colorScheme: ColorSchemeSetting {
+        didSet { UserDefaults.standard.set(colorScheme.rawValue, forKey: colorSchemeKey) }
+    }
+    
+    @Published private(set) var systemColorScheme: ColorScheme = .light
+    
+    private var appearanceCancellable: AnyCancellable?
     
     var currentProfile: Binding<Profile> {
         Binding(
@@ -98,6 +113,13 @@ class SettingsManager: ObservableObject {
             self.showMenuBarIcon = UserDefaults.standard.bool(forKey: menuBarIconKey)
         }
 
+        if let rawValue = UserDefaults.standard.string(forKey: colorSchemeKey),
+           let scheme = ColorSchemeSetting(rawValue: rawValue) {
+            self.colorScheme = scheme
+        } else {
+            self.colorScheme = .auto
+        }
+
         let loadedProfiles: [Profile]
         if let data = UserDefaults.standard.data(forKey: profilesKey),
            let decodedProfiles = try? JSONDecoder().decode([Profile].self, from: data),
@@ -112,7 +134,7 @@ class SettingsManager: ObservableObject {
                 return migratedProfile
             }
         } else {
-            UserDefaults.standard.removeObject(forKey: "WarpKey_Profiles_v3")
+            UserDefaults.standard.removeObject(forKey: "WrapKey_Profiles_v3")
             loadedProfiles = [SettingsManager.createDefaultProfile()]
         }
         
@@ -125,6 +147,15 @@ class SettingsManager: ObservableObject {
         } else {
             self.currentProfileID = loadedProfiles.first!.id
         }
+    }
+    
+    func setupAppearanceMonitoring() {
+        self.systemColorScheme = NSApp.effectiveAppearance.isDark ? .dark : .light
+        appearanceCancellable = NSApp.publisher(for: \.effectiveAppearance)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] appearance in
+                self?.systemColorScheme = appearance.isDark ? .dark : .light
+            }
     }
     
     private static func createDefaultProfile() -> Profile {

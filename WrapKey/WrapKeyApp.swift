@@ -1,12 +1,9 @@
-// WarpKeyApp.swift
-
 import SwiftUI
 import AppKit
 import Sparkle
 import Combine
 
 // MARK: - Updater View Model (The Bridge)
-
 final class UpdaterViewModel: ObservableObject {
     @Published var canCheckForUpdates = false
     @Published var automaticallyChecksForUpdates: Bool
@@ -35,7 +32,6 @@ final class UpdaterViewModel: ObservableObject {
 }
 
 // MARK: - Menu Item View
-
 struct CheckForUpdatesView: View {
     @ObservedObject var updaterViewModel: UpdaterViewModel
     
@@ -47,44 +43,70 @@ struct CheckForUpdatesView: View {
     }
 }
 
+// MARK: - Helper View for Environment-based Injection
+struct AppDelegateInjector: View {
+    let appDelegate: AppDelegate
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Color.clear.frame(width: 0, height: 0)
+            .onAppear {
+                appDelegate.openWindowAction = openWindow
+            }
+    }
+}
+
+
 // MARK: - Main App
-
 @main
-struct WarpKeyApp: App {
+struct WrapKeyApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @StateObject private var launchManager = LaunchAtLoginManager()
-    @StateObject private var updaterViewModel: UpdaterViewModel
-
-    @Environment(\.openWindow) var openWindow
     
+    @StateObject private var settingsManager: SettingsManager
+    @StateObject private var hotKeyManager: AppHotKeyManager
+    @StateObject private var launchManager = LaunchAtLoginManager()
+
     init() {
-        let updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
-        _updaterViewModel = StateObject(wrappedValue: UpdaterViewModel(updater: updater.updater))
+        let settings = SettingsManager()
+        let hotKey = AppHotKeyManager(settings: settings)
         
-        let appDelegate = NSApplication.shared.delegate as? AppDelegate
-        appDelegate?.updaterController = updater
+        _settingsManager = StateObject(wrappedValue: settings)
+        _hotKeyManager = StateObject(wrappedValue: hotKey)
+        
+
+        appDelegate.settings = settings
+        appDelegate.hotKeyManager = hotKey
     }
 
+    private var preferredColorScheme: ColorScheme? {
+        switch settingsManager.colorScheme {
+        case .light:
+            return .light
+        case .dark:
+            return .dark
+        case .auto:
+            return settingsManager.systemColorScheme
+        }
+    }
+    
     var body: some Scene {
-        let settings = appDelegate.settings
-        let hotKeyManager = appDelegate.hotKeyManager
-        let _ = { appDelegate.openWindowAction = openWindow }()
+        Window("WrapKey", id: "main-menu") {
 
-        Window("WarpKey", id: "main-menu") {
             MenuView(
                 manager: hotKeyManager,
                 launchManager: launchManager,
-                updaterViewModel: updaterViewModel
+                updaterViewModel: appDelegate.updaterViewModel
             )
-            .environmentObject(settings)
+            .environmentObject(settingsManager)
             .background(WindowAccessor())
+            .preferredColorScheme(preferredColorScheme)
+            .background(AppDelegateInjector(appDelegate: appDelegate))
         }
-        .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
         .defaultPosition(.center)
         .commands {
             CommandGroup(after: .appInfo) {
-                CheckForUpdatesView(updaterViewModel: updaterViewModel)
+                CheckForUpdatesView(updaterViewModel: appDelegate.updaterViewModel)
             }
             CommandGroup(replacing: .windowList) {}
         }
