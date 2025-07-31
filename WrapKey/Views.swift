@@ -254,20 +254,20 @@ struct AppSettingsView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 20) {
                         
-                        HelpSection(title: "Appearance") {
-                            CustomSegmentedPicker(
-                                title: "Appearance",
-                                selection: $settings.colorScheme,
-                                in: themePickerNamespace
-                            )
-                        }
-                        
                         HelpSection(title: "General") {
                             Toggle("Show Menu Bar Icon", isOn: $settings.showMenuBarIcon)
                                 .toggleStyle(CustomSwitchToggleStyle())
                             
                             Toggle("Launch at Login", isOn: $launchManager.isEnabled)
                                 .toggleStyle(CustomSwitchToggleStyle())
+                        }
+
+                        HelpSection(title: "Appearance") {
+                            CustomSegmentedPicker(
+                                title: "Appearance",
+                                selection: $settings.colorScheme,
+                                in: themePickerNamespace
+                            )
                         }
 
                         HelpSection(title: "Profiles") {
