@@ -456,24 +456,20 @@ struct AppSettingsView: View {
         }
         
         if changeInfo.type == .trigger {
-            let potentialNewTriggerSet = Set((settings.currentProfile.wrappedValue.triggerModifiers[changeInfo.category] ?? []) + [newKey])
-            let secondaryKeySet = Set(settings.currentProfile.wrappedValue.secondaryModifier)
-            
-            if !secondaryKeySet.isEmpty && potentialNewTriggerSet == secondaryKeySet {
-                NotificationManager.shared.sendNotification(title: "Identical Combination", body: "Trigger keys and Secondary keys cannot be identical.")
-                return
-            }
-        } else { // type is .secondary
-            let potentialNewSecondarySet = Set(settings.currentProfile.wrappedValue.secondaryModifier + [newKey])
-            for (category, triggerKeys) in settings.currentProfile.wrappedValue.triggerModifiers {
-                let triggerKeySet = Set(triggerKeys)
-                if !triggerKeySet.isEmpty && potentialNewSecondarySet == triggerKeySet {
-                    NotificationManager.shared.sendNotification(title: "Identical Combination", body: "This combination is already used as the trigger for '\(category.rawValue)'.")
+            if changeInfo.category == .app {
+                if settings.currentProfile.wrappedValue.secondaryModifier.contains(where: { $0.keyCode == newKey.keyCode }) {
+                    NotificationManager.shared.sendNotification(title: "Key Collision", body: "'\(newKey.displayName)' is already a Secondary Key and cannot be an App Trigger.")
                     return
                 }
             }
+        } else { 
+            if let appTriggerKeys = settings.currentProfile.wrappedValue.triggerModifiers[.app],
+               appTriggerKeys.contains(where: { $0.keyCode == newKey.keyCode }) {
+                NotificationManager.shared.sendNotification(title: "Key Collision", body: "'\(newKey.displayName)' is already an App Trigger and cannot be a Secondary Key.")
+                return
+            }
         }
-
+        
         if newKey.isTrueModifier {
             settings.addModifierKey(newKey, for: changeInfo.category, type: changeInfo.type)
         } else {

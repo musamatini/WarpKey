@@ -1,4 +1,5 @@
 //Utils.swift
+				
 import AppKit
 import Foundation
 import UserNotifications
@@ -176,5 +177,4 @@ extension NSAppearance {
         return false
     }
 }
-
 

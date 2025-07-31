@@ -226,7 +226,8 @@ class AppHotKeyManager: ObservableObject {
         if secondaryKeys.contains(where: { !$0.isTrueModifier && $0.keyCode == keyCode }) { return nil }
         
         if type == .keyDown {
-            if isSecondaryPressed() && isTriggerPressed(for: .app) {
+            let appAssignmentTriggers = (settings.currentProfile.wrappedValue.triggerModifiers[.app] ?? []) + settings.currentProfile.wrappedValue.secondaryModifier
+            if !appAssignmentTriggers.isEmpty && areKeysPressed(triggerKeys: appAssignmentTriggers) {
                 assignAppShortcut(keyCode: keyCode)
                 return nil
             }
@@ -235,7 +236,8 @@ class AppHotKeyManager: ObservableObject {
             let assignmentsForKeyCode = settings.currentProfile.wrappedValue.assignments.filter { $0.keyCode == keyCode }
             
             for assignment in assignmentsForKeyCode {
-                if isTriggerPressed(for: assignment.configuration.target.category) {
+                let triggers = settings.triggerModifiers(for: assignment.configuration.target)
+                if areKeysPressed(triggerKeys: triggers) {
                     _ = handleActivation(assignment: assignment)
                     activated = true
                 }

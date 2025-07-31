@@ -6,6 +6,38 @@
     <description>Most recent changes with links to updates.</description>
     <language>en</language>
     <item>
+      <title>Version 1.0.4</title>
+      <pubDate>Thu, 31 Jul 2024 11:30:00 +0300</pubDate>
+      <description>
+        <![CDATA[
+            <h3>What's New in WrapKey</h3>
+            <ul>
+              <li>
+                <ul>
+                  <li>
+                    <strong>App Assignment Fixed:</strong> Resolved a critical bug where the hotkey for assigning new apps (combining <code>Secondary Keys</code> and <code>App Triggers</code>) was not being recognized.
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <ul>
+                  <li>
+                    <strong>Improved Collision Logic:</strong> The app now correctly prevents a key from being used in both the <code>App Triggers</code> and <code>Secondary Keys</code> groups simultaneously.
+                  </li>
+                </ul>
+              </li>
+            </ul>
+        ]]>
+      </description>
+      <enclosure
+        url="https://github.com/musamatini/WrapKey/releases/download/v1.0.4/WrapKey-Universal-Stable-v1.0.4.zip"
+        sparkle:version="4"
+        sparkle:shortVersionString="1.0.3"
+        length="3150868"
+        type="application/octet-stream"
+        sparkle:edSignature="2emxKi3UWFmbmZwiOfYAWLO/WaQMNpazam7Xl2aUKk9R4jsHhOSpsdXVekCbdF8N3sf9PIINj90wQOzpVqDbCA==" />
+    </item>
+    <item>
       <title>Version 1.0.3</title>
       <pubDate>Thu, 31 Jul 2024 06:30:00 +0300</pubDate>
       <description>
