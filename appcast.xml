@@ -15,14 +15,14 @@
           </ul>
         ]]>
       </description>
-      <pubDate>Tue, 21 May 2024 10:00:00 +0000</pubDate>
+      <pubDate>Tue, 31 Jul 2024 05:00:00 +3000</pubDate>
       <enclosure
-        url="https://github.com/musamatini/WrapKey/releases/download/v1.0.1/WrapKey-Universal-Stable-v1.0.1.zip"
+        url="https://github.com/musamatini/WrapKey/releases/download/v1.0.2/WrapKey-Universal-Stable-v1.0.2.zip"
         sparkle:version="2"
-        sparkle:shortVersionString="1.0.1"
-        length="2957368"
+        sparkle:shortVersionString="1.0.2"
+        length="3110727"
         type="application/octet-stream"
-        sparkle:edSignature="il/MuowCb9+iNS6+Yaj2W79rYLh/F3QlOgb5WZhdlv0dCOUNAYuzKr2vwr3qZFEEyHzY9JOfHsQ8NQ3AwvtEAQ==" />
+        sparkle:edSignature="veZlUQPlcIYd++Nb6oSkJngGuRAI5kDzuJ3O8rtXZcvFMFRVGXqXTA/yz12b9t3Gji32sC7lrKov2i5BDKTuDw==" />
     </item>
   </channel>
 </rss>
