@@ -56,23 +56,21 @@ struct MenuView: View {
     @EnvironmentObject var settings: SettingsManager
     @Environment(\.colorScheme) private var colorScheme
     
-    @State private var currentPage: AppPage = .welcome
-    @State private var initialTabForMainView: AppPage = .settings
-    @State private var didAppear = false
+    @State private var currentPage: AppPage = .settings
     
     var body: some View {
         ZStack {
-            if currentPage == .welcome {
+            if !manager.hasAccessibilityPermissions {
+                PermissionsRestartRequiredView()
+            } else if !settings.hasCompletedOnboarding {
                 WelcomePage(
+                    manager: manager,
                     onGetStarted: {
-                        initialTabForMainView = .settings
                         settings.hasCompletedOnboarding = true
-                        withAnimation(.easeIn(duration: 0.3)) { currentPage = .settings }
                     },
                     onGoToHelp: {
-                        initialTabForMainView = .help
                         settings.hasCompletedOnboarding = true
-                        withAnimation(.easeIn(duration: 0.3)) { currentPage = .settings }
+                        currentPage = .help
                     }
                 )
             } else {
@@ -80,25 +78,18 @@ struct MenuView: View {
                     manager: manager,
                     launchManager: launchManager,
                     updaterViewModel: updaterViewModel,
-                    initialTab: initialTabForMainView
+                    initialTab: currentPage
                 )
-            }
-        }
-        .onAppear {
-            if !didAppear {
-                if settings.hasCompletedOnboarding {
-                    currentPage = .settings
-                } else {
-                    currentPage = .welcome
-                }
-                didAppear = true
             }
         }
         .frame(width: 450, height: 700)
         .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
+        .animation(.default, value: manager.hasAccessibilityPermissions)
+        .animation(.default, value: settings.hasCompletedOnboarding)
     }
 }
+
 
 struct MainTabView: View {
     @ObservedObject var manager: AppHotKeyManager
@@ -125,7 +116,7 @@ struct MainTabView: View {
                 MainSettingsView(manager: manager, showHelpPage: { selectedTab = .help }, showAppSettingsPage: { selectedTab = .appSettings })
                     .transition(.asymmetric(insertion: .move(edge: .leading), removal: .identity))
             case .help:
-                HelpView(goBack: { selectedTab = .settings })
+                HelpView(manager: manager, goBack: { selectedTab = .settings })
                     .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)))
             case .appSettings:
                 AppSettingsView(
@@ -173,7 +164,7 @@ struct MainSettingsView: View {
                 ScrollView(showsIndicators: false) {
                     LazyVStack(spacing: 18, pinnedViews: .sectionHeaders) {
                         if settings.currentProfile.wrappedValue.assignments.isEmpty {
-                            EmptyStateView()
+                            EmptyStateView(manager: manager)
                         } else {
                             ForEach(categoryOrder, id: \.self) { category in
                                 if let items = categorizedAssignments[category], !items.isEmpty {
@@ -225,6 +216,7 @@ struct MainSettingsView: View {
         }
     }
 }
+
 
 // MARK: - App Settings Screen
 struct AppSettingsView: View {
@@ -315,22 +307,36 @@ struct AppSettingsView: View {
                         }
                         
                         HelpSection(title: "Trigger Keys for \"\(settings.currentProfile.wrappedValue.name)\"") {
-                            ForEach(ShortcutCategory.allCases, id: \.self) { category in
-                                ModifierKeySelectorRow(
-                                    title: category.rawValue,
-                                    currentKeyDisplayName: settings.currentProfile.wrappedValue.triggerModifiers[category]?.displayName ?? "??",
-                                    isListening: manager.isListeningForNewModifier && manager.modifierToChange?.category == category,
-                                    action: { manager.modifierToChange = (category, .trigger); manager.isListeningForNewModifier = true }
-                                )
+                            VStack(spacing: 16) {
+                                ForEach(ShortcutCategory.allCases, id: \.self) { category in
+                                    ModifierKeySelector(
+                                        title: category.rawValue,
+                                        isListening: manager.isListeningForNewModifier && manager.modifierToChange?.category == category,
+                                        keys: settings.currentProfile.wrappedValue.triggerModifiers[category] ?? [],
+                                        onAdd: {
+                                            manager.modifierToChange = (category, .trigger)
+                                            manager.isListeningForNewModifier = true
+                                        },
+                                        onRemove: { key in
+                                            settings.removeModifierKey(key, for: category, type: .trigger)
+                                        }
+                                    )
+                                }
                             }
                         }
                         
-                        HelpSection(title: "Secondary Key (for App Assignment)") {
-                            ModifierKeySelectorRow(
-                                title: "Secondary Key",
-                                currentKeyDisplayName: settings.currentProfile.wrappedValue.secondaryModifier.displayName,
+                        HelpSection(title: "Secondary Keys (for App Assignment)") {
+                            ModifierKeySelector(
+                                title: "Secondary Keys",
                                 isListening: manager.isListeningForNewModifier && manager.modifierToChange?.type == .secondary,
-                                action: { manager.modifierToChange = (.app, .secondary); manager.isListeningForNewModifier = true }
+                                keys: settings.currentProfile.wrappedValue.secondaryModifier,
+                                onAdd: {
+                                    manager.modifierToChange = (.app, .secondary)
+                                    manager.isListeningForNewModifier = true
+                                },
+                                onRemove: { key in
+                                    settings.removeModifierKey(key, for: .app, type: .secondary)
+                                }
                             )
                         }
                         
@@ -384,9 +390,9 @@ struct AppSettingsView: View {
         }
         .onReceive(keyPressPublisher) { notification in handleKeyPress(notification: notification) }
         .alert("Set Key", isPresented: $isShowingConfirmationAlert, presenting: potentialNewKey) { key in
-            Button("Confirm", role: .destructive) { if let changeInfo = manager.modifierToChange { manager.setNewModifierKey(key, for: changeInfo.category, type: changeInfo.type) } }
+            Button("Confirm", role: .destructive) { if let changeInfo = manager.modifierToChange { settings.addModifierKey(key, for: changeInfo.category, type: changeInfo.type) } }
             Button("Cancel", role: .cancel) {}
-        } message: { key in Text("Set '\(key.displayName)' as your \(manager.modifierToChange?.type == .trigger ? "Trigger" : "Secondary") key? You will no longer be able to type this key normally.") }
+        } message: { key in Text("Set '\(key.displayName)' as a \(manager.modifierToChange?.type == .trigger ? "Trigger" : "Secondary") key? You will no longer be able to type this key normally.") }
         .alert(isEditingExistingProfile ? "Rename Profile" : "New Profile", isPresented: $isShowingProfileNameAlert) {
             TextField("Profile Name", text: $profileNameField)
             Button("Save") {
@@ -405,13 +411,50 @@ struct AppSettingsView: View {
               let changeInfo = manager.modifierToChange else { return }
 
         let event = notification.object as! CGEvent
-
         manager.isListeningForNewModifier = false
+        
         let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
         let newKey = ModifierKey.from(keyCode: keyCode)
+        
+        // --- START OF NEW VALIDATION LOGIC ---
+
+        let currentKeysForThisSelector: [ModifierKey]
+        if changeInfo.type == .trigger {
+            currentKeysForThisSelector = settings.currentProfile.wrappedValue.triggerModifiers[changeInfo.category] ?? []
+        } else {
+            currentKeysForThisSelector = settings.currentProfile.wrappedValue.secondaryModifier
+        }
+        
+        if currentKeysForThisSelector.contains(where: { $0.keyCode == newKey.keyCode }) {
+            NotificationManager.shared.sendNotification(title: "Key Already Used", body: "'\(newKey.displayName)' is already in this list.")
+            return
+        }
+        
+        // A conflict only exists if two key combinations are IDENTICAL.
+        // Being a subset (e.g., Cmd vs Cmd+Opt) is a valid, non-conflicting state.
+        if changeInfo.type == .trigger {
+            let potentialNewTriggerSet = Set((settings.currentProfile.wrappedValue.triggerModifiers[changeInfo.category] ?? []) + [newKey])
+            let secondaryKeySet = Set(settings.currentProfile.wrappedValue.secondaryModifier)
+            
+            if !secondaryKeySet.isEmpty && potentialNewTriggerSet == secondaryKeySet {
+                NotificationManager.shared.sendNotification(title: "Identical Combination", body: "Trigger keys and Secondary keys cannot be identical.")
+                return
+            }
+        } else { // type is .secondary
+            let potentialNewSecondarySet = Set(settings.currentProfile.wrappedValue.secondaryModifier + [newKey])
+            for (category, triggerKeys) in settings.currentProfile.wrappedValue.triggerModifiers {
+                let triggerKeySet = Set(triggerKeys)
+                if !triggerKeySet.isEmpty && potentialNewSecondarySet == triggerKeySet {
+                    NotificationManager.shared.sendNotification(title: "Identical Combination", body: "This combination is already used as the trigger for '\(category.rawValue)'.")
+                    return
+                }
+            }
+        }
+        
+        // --- END OF NEW VALIDATION LOGIC ---
 
         if newKey.isTrueModifier {
-            manager.setNewModifierKey(newKey, for: changeInfo.category, type: changeInfo.type)
+            settings.addModifierKey(newKey, for: changeInfo.category, type: changeInfo.type)
         } else {
             potentialNewKey = newKey
             isShowingConfirmationAlert = true
@@ -435,7 +478,25 @@ struct AppSettingsView: View {
         if openPanel.runModal() == .OK, let url = openPanel.url {
             do {
                 let data = try Data(contentsOf: url)
-                let importedProfiles = try JSONDecoder().decode([Profile].self, from: data)
+                let decoder = JSONDecoder()
+
+                let importedProfiles: [Profile]
+                do {
+                    importedProfiles = try decoder.decode([Profile].self, from: data)
+                } catch {
+                    struct OldProfileV4: Codable {
+                        var id: UUID, name: String, triggerModifiers: [ShortcutCategory: ModifierKey], secondaryModifier: ModifierKey, assignments: [Assignment]
+                    }
+                    let oldProfiles = try decoder.decode([OldProfileV4].self, from: data)
+                    importedProfiles = oldProfiles.map { old -> Profile in
+                        var newTriggers = old.triggerModifiers.mapValues { [$0] }
+                        for category in ShortcutCategory.allCases where newTriggers[category] == nil {
+                            newTriggers[category] = newTriggers[.app] ?? [ModifierKey.from(keyCode: 54)]
+                        }
+                        return Profile(id: old.id, name: old.name, triggerModifiers: newTriggers, secondaryModifier: [old.secondaryModifier], assignments: old.assignments)
+                    }
+                }
+
                 var validShortcutsCount = 0; var skippedShortcutsCount = 0
                 let validatedProfiles = importedProfiles.map { profile -> Profile in
                     var newProfile = profile; var validatedAssignments: [Assignment] = []
@@ -455,8 +516,78 @@ struct AppSettingsView: View {
     }
 }
 
+// MARK: - Permissions Screen
+struct PermissionsRestartRequiredView: View {
+    @Environment(\.colorScheme) private var colorScheme
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            Spacer()
+            VStack(spacing: 35) {
+                VStack(spacing: 15) {
+                    Image(systemName: "lock.shield.fill")
+                        .font(.system(size: 50, weight: .bold))
+                        .symbolRenderingMode(.monochrome)
+                        .foregroundStyle(AppTheme.accentColor1(for: colorScheme))
+                    Text("Accessibility Access Required")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                }
+                
+                VStack(alignment: .center, spacing: 15) {
+                    Text("WrapKey needs your permission to listen for keyboard events.")
+                        .fontWeight(.semibold)
+                    
+                    Text("1. Click **Open System Settings**.\n2. Find **WrapKey** in the list and turn it on.\n3. Return here and click **Relaunch App**.")
+                }
+                .font(.callout)
+                .foregroundColor(AppTheme.secondaryTextColor(for: colorScheme))
+                .multilineTextAlignment(.leading)
+                .lineSpacing(5)
+                .padding()
+                .background(AppTheme.pillBackgroundColor(for: colorScheme))
+                .cornerRadius(AppTheme.cornerRadius)
+                .padding(.horizontal, 40)
+            }
+            Spacer()
+            
+            VStack(spacing: 16) {
+                Button(action: { AccessibilityManager.requestPermissions() }) {
+                    Text("Open System Settings")
+                        .font(.headline.weight(.semibold))
+                        .padding(.horizontal, 40)
+                        .padding(.vertical, 14)
+                        .frame(maxWidth: .infinity)
+                        .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
+                        .background(AppTheme.accentColor1(for: colorScheme))
+                        .cornerRadius(50)
+                }
+                .buttonStyle(.plain)
+                
+                Button(action: { NotificationCenter.default.post(name: .requestAppRestart, object: nil) }) {
+                    Text("Relaunch App")
+                        .font(.headline.weight(.semibold))
+                        .padding(.horizontal, 40)
+                        .padding(.vertical, 14)
+                        .frame(maxWidth: .infinity)
+                        .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
+                        .background(AppTheme.pillBackgroundColor(for: colorScheme))
+                        .cornerRadius(50)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 50)
+            .padding(.bottom, 50)
+        }
+        .frame(width: 450, height: 700)
+        .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
+        .background(AppTheme.background(for: colorScheme).ignoresSafeArea())
+    }
+}
+
+
 // MARK: - Welcome Screen
 struct WelcomePage: View {
+    @ObservedObject var manager: AppHotKeyManager
     @EnvironmentObject var settings: SettingsManager
     @Environment(\.colorScheme) private var colorScheme
     var onGetStarted: () -> Void
@@ -465,6 +596,14 @@ struct WelcomePage: View {
     @State private var isShowingContent = false
     private let donationURL = URL(string: "https://www.patreon.com/MusaMatini")!
     private let githubURL = URL(string: "https://github.com/musamatini/WrapKey")!
+    
+    private var appTriggerString: String {
+        manager.modifierKeyCombinationString(for: settings.currentProfile.wrappedValue.triggerModifiers[.app] ?? [])
+    }
+    
+    private var secondaryTriggerString: String {
+        manager.modifierKeyCombinationString(for: settings.currentProfile.wrappedValue.secondaryModifier)
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -476,8 +615,8 @@ struct WelcomePage: View {
                 }.opacity(isShowingContent ? 1 : 0).animation(.easeInOut(duration: 0.7), value: isShowingContent)
                 
                 VStack(alignment: .leading, spacing: 25) {
-                    WelcomeActionRow(icon: "plus.app.fill", title: "Assign an App", subtitle: "Use **\(settings.currentProfile.wrappedValue.secondaryModifier.displayName) + \(settings.currentProfile.wrappedValue.triggerModifiers[.app]!.displayName) + [Letter]** when an app is frontmost.")
-                    WelcomeActionRow(icon: "bolt.horizontal.circle.fill", title: "Use a Shortcut", subtitle: "Press **[Trigger Key] + [Letter]** to launch, hide, or run your shortcut.")
+                    WelcomeActionRow(icon: "plus.app.fill", title: "Assign an App", subtitle: "Use **\(secondaryTriggerString) + \(appTriggerString) + [Letter]** when an app is frontmost.")
+                    WelcomeActionRow(icon: "bolt.horizontal.circle.fill", title: "Use a Shortcut", subtitle: "Press **[Trigger Keys] + [Letter]** to launch, hide, or run your shortcut.")
                 }.padding(.horizontal, 40).opacity(isShowingContent ? 1 : 0).animation(.easeInOut(duration: 0.7).delay(0.1), value: isShowingContent)
                 
                 (Text("Check the ") + Text("How to Use").bold().foregroundColor(AppTheme.accentColor1(for: colorScheme)).underline() + Text(" page for more info."))
@@ -503,10 +642,19 @@ struct WelcomePage: View {
 
 // MARK: - Help Screen
 struct HelpView: View {
+    @ObservedObject var manager: AppHotKeyManager
     var goBack: () -> Void
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var settings: SettingsManager
     @Environment(\.colorScheme) private var colorScheme
+    
+    private var appTriggerString: String {
+        manager.modifierKeyCombinationString(for: settings.currentProfile.wrappedValue.triggerModifiers[.app] ?? [])
+    }
+    
+    private var secondaryTriggerString: String {
+        manager.modifierKeyCombinationString(for: settings.currentProfile.wrappedValue.secondaryModifier)
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -517,8 +665,8 @@ struct HelpView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     
                     HelpSection(title: "Core Actions") {
-                        HelpDetailRow(icon: "plus.app.fill", title: "Assign an App", subtitle: "Bring an app to the front, then press **\(settings.currentProfile.wrappedValue.secondaryModifier.displayName) + \(settings.currentProfile.wrappedValue.triggerModifiers[.app]!.displayName) + [Letter]**.")
-                        HelpDetailRow(icon: "bolt.horizontal.circle.fill", title: "Use a Shortcut", subtitle: "Anywhere in macOS, press **[Trigger Key] + [Letter]** to trigger your shortcut.")
+                        HelpDetailRow(icon: "plus.app.fill", title: "Assign an App", subtitle: "Bring an app to the front, then press **\(secondaryTriggerString) + \(appTriggerString) + [Letter]**.")
+                        HelpDetailRow(icon: "bolt.horizontal.circle.fill", title: "Use a Shortcut", subtitle: "Anywhere in macOS, press **[Trigger Keys] + [Letter]** to trigger your shortcut.")
                         HelpDetailRow(icon: "plus", title: "Add Other Shortcuts", subtitle: "Use the **+ Add Shortcut** button to create shortcuts for URLs, files, folders, and shell scripts.")
                         HelpDetailRow(icon: "pencil.and.scribble", title: "Edit a Shortcut", subtitle: "For URLs, Scripts, and Files, click the pencil icon to either change the hotkey or update its content (the URL, command, or file path).")
                     }
@@ -532,8 +680,9 @@ struct HelpView: View {
                     }
                     
                     HelpSection(title: "Advanced Features") {
+                        HelpDetailRow(icon: "keyboard.onehanded.left.fill", title: "Hyper Keys", subtitle: "Assign multiple keys (like ⌘ + ⌥ + ⌃) to a single trigger group. This creates a unique 'Hyper Key' that won't conflict with other app shortcuts.")
                         HelpDetailRow(icon: "person.2.fill", title: "Profiles", subtitle: "Create different sets of shortcuts and trigger keys for different contexts (e.g., 'Work', 'Studying'). Manage them in App Settings.")
-                        HelpDetailRow(icon: "keyboard.fill", title: "Per-Type Triggers", subtitle: "Assign a different Trigger Key for each category of shortcut (Apps, URLs, etc.) for ultimate control.")
+                        HelpDetailRow(icon: "keyboard.fill", title: "Per-Type Triggers", subtitle: "Assign a different Trigger Key combination for each category of shortcut (Apps, URLs, etc.) for ultimate control.")
                         HelpDetailRow(icon: "exclamationmark.triangle.fill", title: "Hotkey Conflicts", subtitle: "If a hotkey is assigned to multiple actions, a warning will appear. When pressed, all conflicting actions will run.")
                         HelpDetailRow(icon: "square.and.arrow.down", title: "Import/Export", subtitle: "Save your entire setup, including all profiles and shortcuts, to a file. Perfect for backups or moving to a new Mac.")
                     }
@@ -627,28 +776,80 @@ struct CategoryHeader: View {
     }
 }
 
-struct ModifierKeySelectorRow: View {
+struct ModifierKeySelector: View {
     @Environment(\.colorScheme) private var colorScheme
-    let title: String; let currentKeyDisplayName: String; let isListening: Bool; let action: () -> Void
+    let title: String
+    let isListening: Bool
+    let keys: [ModifierKey]
+    let onAdd: () -> Void
+    let onRemove: (ModifierKey) -> Void
+
     var body: some View {
-        HStack {
-            Text(title).fontWeight(.semibold)
-            Spacer()
-            if isListening {
-                ProgressView().progressViewStyle(.circular).tint(AppTheme.accentColor1(for: colorScheme))
-            } else {
-                PillCard(content: { Text(currentKeyDisplayName).font(.system(.body, design: .monospaced).weight(.semibold)).lineLimit(1).minimumScaleFactor(0.7).padding(.horizontal, 4) }, cornerRadius: AppTheme.cornerRadius)
-                Button(action: action) {
-                    PillCard(content: { Image(systemName: "pencil.circle.fill").font(.system(.body, design: .monospaced).weight(.semibold)).foregroundColor(AppTheme.accentColor1(for: colorScheme)) }, cornerRadius: AppTheme.cornerRadius)
-                }.buttonStyle(.plain)
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .fontWeight(.semibold)
+                .padding(.horizontal, 8)
+            
+            HStack(spacing: 8) {
+                if keys.isEmpty {
+                    Text("No keys set")
+                        .font(.caption)
+                        .foregroundColor(AppTheme.secondaryTextColor(for: colorScheme))
+                        .padding(.horizontal, 12)
+                } else {
+                    ForEach(keys) { key in
+                        PillCard(content: {
+                            HStack(spacing: 6) {
+                                Text(key.displayName)
+                                    .font(.system(.body, design: .monospaced).weight(.semibold))
+                                    .lineLimit(1)
+                                
+                                Button(action: { onRemove(key) }) {
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundColor(AppTheme.secondaryTextColor(for: colorScheme))
+                                }
+                                .buttonStyle(.plain)
+                                .contentShape(Rectangle())
+                            }
+                        }, cornerRadius: AppTheme.cornerRadius)
+                    }
+                }
+                
+                if isListening {
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                        .tint(AppTheme.accentColor1(for: colorScheme))
+                        .frame(width: 20, height: 20)
+                } else {
+                    Button(action: onAdd) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundColor(AppTheme.accentColor1(for: colorScheme))
+                    }
+                    .buttonStyle(.plain)
+                }
+                Spacer()
             }
-        }.padding(.horizontal, 8).frame(maxWidth: .infinity)
+            .padding(.horizontal, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 }
 
+
 struct EmptyStateView: View {
+    @ObservedObject var manager: AppHotKeyManager
     @EnvironmentObject var settings: SettingsManager
     @Environment(\.colorScheme) private var colorScheme
+    
+    private var appTriggerString: String {
+        manager.modifierKeyCombinationString(for: settings.currentProfile.wrappedValue.triggerModifiers[.app] ?? [])
+    }
+    
+    private var secondaryTriggerString: String {
+        manager.modifierKeyCombinationString(for: settings.currentProfile.wrappedValue.secondaryModifier)
+    }
     
     var body: some View {
         VStack(spacing: 16) {
@@ -659,7 +860,7 @@ struct EmptyStateView: View {
                 .opacity(0.8)
             VStack(spacing: 4) {
                 Text("No Shortcuts Yet").font(.title3.weight(.bold))
-                Text("Use the **+ Add Shortcut** button to begin\nor assign an app with **\(settings.currentProfile.wrappedValue.secondaryModifier.displayName) + \(settings.currentProfile.wrappedValue.triggerModifiers[.app]!.displayName) + [Letter]**")
+                Text("Use the **+ Add Shortcut** button to begin\nor assign an app with **\(secondaryTriggerString) + \(appTriggerString) + [Letter]**")
                     .font(.callout).foregroundColor(AppTheme.secondaryTextColor(for: colorScheme)).multilineTextAlignment(.center).lineSpacing(4)
             }
             Spacer()
@@ -711,7 +912,10 @@ struct AssignmentRow: View {
                 }
                 Spacer()
                 
-                PillCard(content: { Text("\(settings.triggerModifier(for: assignment.configuration.target).symbol) + \(manager.keyString(for: assignment.keyCode))").font(.system(.body, design: .monospaced).weight(.semibold)) }, cornerRadius: AppTheme.cornerRadius)
+                let triggerKeys = settings.triggerModifiers(for: assignment.configuration.target)
+                let triggerString = manager.modifierKeyCombinationString(for: triggerKeys)
+                
+                PillCard(content: { Text("\(triggerString) + \(manager.keyString(for: assignment.keyCode))").font(.system(.body, design: .monospaced).weight(.semibold)) }, cornerRadius: AppTheme.cornerRadius)
                 
                 Button(action: {
                     if isEditable {

@@ -1,3 +1,4 @@
+//AppDelegate.swift
 import AppKit
 import SwiftUI
 import UserNotifications
@@ -64,6 +65,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         NotificationCenter.default.addObserver(self, selector: #selector(handleShortcutActivation), name: .shortcutActivated, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(windowWillClose(_:)), name: NSWindow.willCloseNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleAppDidBecomeActive), name: NSApplication.didBecomeActiveNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleRestartRequest), name: .requestAppRestart, object: nil)
     }
     
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -75,6 +77,29 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         NSApp.activate(ignoringOtherApps: true)
         openWindowAction?(id: "main-menu")
         return true
+    }
+    
+    // MARK: - App Control
+    @objc func handleRestartRequest() {
+        let appPath = Bundle.main.bundlePath
+        let script = "sleep 1 && open \"\(appPath)\""
+
+        let task = Process()
+        task.launchPath = "/bin/sh"
+        task.arguments = ["-c", script]
+
+        // This prevents the new process from being a child of the old one
+        // which is crucial for a clean restart.
+        task.standardError = nil
+        task.standardInput = nil
+        task.standardOutput = nil
+        
+        do {
+            try task.run()
+            NSApp.terminate(self)
+        } catch {
+            print("Failed to run restart script: \(error)")
+        }
     }
     
     // MARK: - Permissions

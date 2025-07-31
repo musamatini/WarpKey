@@ -1,3 +1,4 @@
+//SettingsManager.swift
 import SwiftUI
 import Combine
 
@@ -37,15 +38,15 @@ struct Assignment: Codable, Identifiable, Hashable {
 struct Profile: Codable, Identifiable, Hashable {
     var id = UUID()
     var name: String
-    var triggerModifiers: [ShortcutCategory: ModifierKey]
-    var secondaryModifier: ModifierKey
+    var triggerModifiers: [ShortcutCategory: [ModifierKey]]
+    var secondaryModifier: [ModifierKey]
     var assignments: [Assignment]
 }
 
 // MARK: - Settings Manager
 class SettingsManager: ObservableObject {
     // MARK: - Keys
-    private let profilesKey = "WrapKey_Profiles_v4"
+    private let profilesKey = "WrapKey_Profiles_v5"
     private let currentProfileIDKey = "WrapKey_CurrentProfileID_v2"
     private let menuBarIconKey = "showMenuBarIcon_v1"
     private let onboardingKey = "hasCompletedOnboarding_v1"
@@ -120,24 +121,7 @@ class SettingsManager: ObservableObject {
             self.colorScheme = .auto
         }
 
-        let loadedProfiles: [Profile]
-        if let data = UserDefaults.standard.data(forKey: profilesKey),
-           let decodedProfiles = try? JSONDecoder().decode([Profile].self, from: data),
-           !decodedProfiles.isEmpty {
-            loadedProfiles = decodedProfiles.map { profile in
-                var migratedProfile = profile
-                for category in ShortcutCategory.allCases {
-                    if migratedProfile.triggerModifiers[category] == nil {
-                        migratedProfile.triggerModifiers[category] = migratedProfile.triggerModifiers[.app] ?? ModifierKey.from(keyCode: 54)
-                    }
-                }
-                return migratedProfile
-            }
-        } else {
-            UserDefaults.standard.removeObject(forKey: "WrapKey_Profiles_v3")
-            loadedProfiles = [SettingsManager.createDefaultProfile()]
-        }
-        
+        let loadedProfiles = SettingsManager.loadAndMigrateProfiles(from: profilesKey)
         self.profiles = loadedProfiles
         
         if let uuidString = UserDefaults.standard.string(forKey: currentProfileIDKey),
@@ -158,9 +142,50 @@ class SettingsManager: ObservableObject {
             }
     }
     
+    private static func loadAndMigrateProfiles(from key: String) -> [Profile] {
+        let oldProfilesKeyV4 = "WrapKey_Profiles_v4"
+        let oldProfilesKeyV3 = "WrapKey_Profiles_v3"
+        
+        // Attempt to load current version first
+        if let data = UserDefaults.standard.data(forKey: key),
+           let decodedProfiles = try? JSONDecoder().decode([Profile].self, from: data),
+           !decodedProfiles.isEmpty {
+            return decodedProfiles
+        }
+        
+        // Migration from v4
+        if let oldData = UserDefaults.standard.data(forKey: oldProfilesKeyV4) {
+            struct OldProfileV4: Codable {
+                var id: UUID
+                var name: String
+                var triggerModifiers: [ShortcutCategory: ModifierKey]
+                var secondaryModifier: ModifierKey
+                var assignments: [Assignment]
+            }
+            if let decodedOldProfiles = try? JSONDecoder().decode([OldProfileV4].self, from: oldData) {
+                let migrated = decodedOldProfiles.map { old -> Profile in
+                    var newTriggers = old.triggerModifiers.mapValues { [$0] }
+                    for category in ShortcutCategory.allCases where newTriggers[category] == nil {
+                        newTriggers[category] = newTriggers[.app] ?? [ModifierKey.from(keyCode: 54)]
+                    }
+                    return Profile(id: old.id, name: old.name, triggerModifiers: newTriggers, secondaryModifier: [old.secondaryModifier], assignments: old.assignments)
+                }
+                UserDefaults.standard.removeObject(forKey: oldProfilesKeyV4)
+                print("[Migration] Successfully migrated profiles from v4 to v5.")
+                return migrated
+            }
+        }
+        
+        // Clean up old v3 key if present
+        UserDefaults.standard.removeObject(forKey: oldProfilesKeyV3)
+        
+        // If all else fails, create a default profile
+        return [createDefaultProfile()]
+    }
+    
     private static func createDefaultProfile() -> Profile {
-        let defaultTrigger = ModifierKey.from(keyCode: 54)
-        var triggers: [ShortcutCategory: ModifierKey] = [:]
+        let defaultTrigger = [ModifierKey.from(keyCode: 54)]
+        var triggers: [ShortcutCategory: [ModifierKey]] = [:]
         for category in ShortcutCategory.allCases {
             triggers[category] = defaultTrigger
         }
@@ -168,7 +193,7 @@ class SettingsManager: ObservableObject {
         return Profile(
             name: "Default",
             triggerModifiers: triggers,
-            secondaryModifier: ModifierKey.from(keyCode: 61),
+            secondaryModifier: [ModifierKey.from(keyCode: 61)],
             assignments: []
         )
     }
@@ -181,22 +206,34 @@ class SettingsManager: ObservableObject {
     }
     
     func addAssignment(_ assignment: Assignment) {
-        if let index = self.profiles.firstIndex(where: { $0.id == self.currentProfileID }) {
-            profiles[index].assignments.append(assignment)
-        }
+        currentProfile.wrappedValue.assignments.append(assignment)
     }
     
     func updateAssignment(id: UUID, newKeyCode: CGKeyCode) {
-        if let profileIndex = self.profiles.firstIndex(where: { $0.id == self.currentProfileID }),
-           let assignmentIndex = self.profiles[profileIndex].assignments.firstIndex(where: { $0.id == id }) {
-            self.profiles[profileIndex].assignments[assignmentIndex].keyCode = newKeyCode
+        if let assignmentIndex = currentProfile.wrappedValue.assignments.firstIndex(where: { $0.id == id }) {
+            currentProfile.wrappedValue.assignments[assignmentIndex].keyCode = newKeyCode
         }
     }
     
     func updateAssignmentContent(id: UUID, newTarget: ShortcutTarget) {
-        if let profileIndex = self.profiles.firstIndex(where: { $0.id == self.currentProfileID }),
-           let assignmentIndex = self.profiles[profileIndex].assignments.firstIndex(where: { $0.id == id }) {
-            self.profiles[profileIndex].assignments[assignmentIndex].configuration.target = newTarget
+        if let assignmentIndex = currentProfile.wrappedValue.assignments.firstIndex(where: { $0.id == id }) {
+            currentProfile.wrappedValue.assignments[assignmentIndex].configuration.target = newTarget
+        }
+    }
+    
+    func addModifierKey(_ newKey: ModifierKey, for category: ShortcutCategory, type: ModifierType) {
+        if type == .trigger {
+            currentProfile.wrappedValue.triggerModifiers[category]?.append(newKey)
+        } else {
+            currentProfile.wrappedValue.secondaryModifier.append(newKey)
+        }
+    }
+    
+    func removeModifierKey(_ keyToRemove: ModifierKey, for category: ShortcutCategory, type: ModifierType) {
+        if type == .trigger {
+            currentProfile.wrappedValue.triggerModifiers[category]?.removeAll(where: { $0.keyCode == keyToRemove.keyCode })
+        } else {
+            currentProfile.wrappedValue.secondaryModifier.removeAll(where: { $0.keyCode == keyToRemove.keyCode })
         }
     }
     
@@ -221,8 +258,8 @@ class SettingsManager: ObservableObject {
         }
     }
     
-    func triggerModifier(for target: ShortcutTarget) -> ModifierKey {
+    func triggerModifiers(for target: ShortcutTarget) -> [ModifierKey] {
         let category = target.category
-        return self.currentProfile.wrappedValue.triggerModifiers[category]!
+        return self.currentProfile.wrappedValue.triggerModifiers[category] ?? []
     }
 }

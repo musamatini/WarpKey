@@ -34,7 +34,8 @@ struct ShortcutConfiguration: Codable, Hashable {
 }
 
 // MARK: - Modifier Key Definition
-struct ModifierKey: Codable, Equatable, Hashable {
+struct ModifierKey: Codable, Equatable, Hashable, Identifiable {
+    var id: CGKeyCode { keyCode }
     let keyCode: CGKeyCode
     let displayName: String
     let isTrueModifier: Bool
@@ -87,6 +88,7 @@ struct ModifierKey: Codable, Equatable, Hashable {
 // MARK: - HotKey Manager
 class AppHotKeyManager: ObservableObject {
     // MARK: - Published Properties
+    @Published var hasAccessibilityPermissions: Bool
     @Published var isListeningForNewModifier: Bool = false
     @Published var modifierToChange: (category: ShortcutCategory, type: ModifierType)? = nil
     @Published var isListeningForAssignment = false
@@ -114,6 +116,8 @@ class AppHotKeyManager: ObservableObject {
     // MARK: - Initialization
     init(settings: SettingsManager) {
         self.settings = settings
+        self.hasAccessibilityPermissions = AccessibilityManager.checkPermissions()
+        
         settingsCancellable = settings.$profiles
             .debounce(for: .milliseconds(100), scheduler: DispatchQueue.main)
             .sink { [weak self] _ in
@@ -131,16 +135,20 @@ class AppHotKeyManager: ObservableObject {
     
     // MARK: - Event Monitoring
     func restartMonitoringIfNeeded() {
-        guard !isMonitoringActive, AccessibilityManager.checkPermissions() else { return }
+        let hadPermissions = hasAccessibilityPermissions
+        let nowHasPermissions = AccessibilityManager.checkPermissions()
+        
+        if nowHasPermissions && !hadPermissions {
+            NotificationCenter.default.post(name: .requestAppRestart, object: nil)
+            return
+        }
+
+        self.hasAccessibilityPermissions = nowHasPermissions
+        
+        guard !isMonitoringActive, hasAccessibilityPermissions else { return }
         
         DispatchQueue.main.async {
             self.restartMonitoring()
-            if self.isMonitoringActive {
-                NotificationManager.shared.sendNotification(
-                    title: "Permissions Granted!",
-                    body: "WrapKey is now fully active and listening for your shortcuts."
-                )
-            }
         }
     }
     
@@ -152,7 +160,7 @@ class AppHotKeyManager: ObservableObject {
     private func startMonitoring() {
         if isMonitoringActive { return }
         
-        guard AccessibilityManager.checkPermissions() else {
+        guard hasAccessibilityPermissions else {
             print("[WARN] Accessibility permissions not granted. Key monitoring is disabled.")
             isMonitoringActive = false
             return
@@ -212,10 +220,10 @@ class AppHotKeyManager: ObservableObject {
         default: break
         }
         
-        let allTriggers = Set(settings.currentProfile.wrappedValue.triggerModifiers.values)
-        let secondary = settings.currentProfile.wrappedValue.secondaryModifier
-        if allTriggers.contains(where: { !$0.isTrueModifier && $0.keyCode == keyCode }) { return nil }
-        if !secondary.isTrueModifier && secondary.keyCode == keyCode { return nil }
+        let allTriggerKeys = Set(settings.currentProfile.wrappedValue.triggerModifiers.values.flatMap { $0 })
+        let secondaryKeys = Set(settings.currentProfile.wrappedValue.secondaryModifier)
+        if allTriggerKeys.contains(where: { !$0.isTrueModifier && $0.keyCode == keyCode }) { return nil }
+        if secondaryKeys.contains(where: { !$0.isTrueModifier && $0.keyCode == keyCode }) { return nil }
         
         if type == .keyDown {
             if isSecondaryPressed() && isTriggerPressed(for: .app) {
@@ -242,31 +250,31 @@ class AppHotKeyManager: ObservableObject {
     }
 
     // MARK: - State Checkers
+    private func areKeysPressed(triggerKeys keys: [ModifierKey]) -> Bool {
+        if keys.isEmpty { return false }
+        
+        let requiredTrueModifiers = Set(keys.filter { $0.isTrueModifier }.map { $0.keyCode })
+        let requiredNonModifiers = Set(keys.filter { !$0.isTrueModifier }.map { $0.keyCode })
+
+        if !pressedNonModifierKeys.isSuperset(of: requiredNonModifiers) {
+            return false
+        }
+        
+        let allHeldTrueModifiers = pressedModifierKeys.intersection(Set(modifierKeyToFlagMap.keys))
+        return allHeldTrueModifiers == requiredTrueModifiers
+    }
+    
     private func isTriggerPressed(for category: ShortcutCategory) -> Bool {
-        guard let trigger = settings.currentProfile.wrappedValue.triggerModifiers[category] else { return false }
-        return trigger.isTrueModifier ? pressedModifierKeys.contains(trigger.keyCode) : pressedNonModifierKeys.contains(trigger.keyCode)
+        guard let triggers = settings.currentProfile.wrappedValue.triggerModifiers[category] else { return false }
+        return areKeysPressed(triggerKeys: triggers)
     }
     
     private func isSecondaryPressed() -> Bool {
-        let secondary = settings.currentProfile.wrappedValue.secondaryModifier
-        return secondary.isTrueModifier ? pressedModifierKeys.contains(secondary.keyCode) : pressedNonModifierKeys.contains(secondary.keyCode)
+        let secondaryKeys = settings.currentProfile.wrappedValue.secondaryModifier
+        return areKeysPressed(triggerKeys: secondaryKeys)
     }
 
     // MARK: - Modifier & Assignment Logic
-    func setNewModifierKey(_ newModifierKey: ModifierKey, for category: ShortcutCategory, type: ModifierType) {
-        if type == .trigger {
-            if newModifierKey == settings.currentProfile.wrappedValue.secondaryModifier {
-                return
-            }
-            settings.currentProfile.wrappedValue.triggerModifiers[category] = newModifierKey
-        } else {
-            if settings.currentProfile.wrappedValue.triggerModifiers.values.contains(newModifierKey) {
-                return
-            }
-            settings.currentProfile.wrappedValue.secondaryModifier = newModifierKey
-        }
-    }
-    
     func listenForNewAssignment(target: ShortcutTarget, assignmentID: UUID? = nil) {
         pressedModifierKeys.removeAll()
         pressedNonModifierKeys.removeAll()
@@ -277,10 +285,11 @@ class AppHotKeyManager: ObservableObject {
     
     private func completeAssignment(event: CGEvent) {
         let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
-        let allTriggers = Set(settings.currentProfile.wrappedValue.triggerModifiers.values)
-        let secondary = settings.currentProfile.wrappedValue.secondaryModifier
         
-        if allTriggers.map({ $0.keyCode }).contains(keyCode) || keyCode == secondary.keyCode {
+        let allTriggerKeyCodes = settings.currentProfile.wrappedValue.triggerModifiers.values.flatMap { $0 }.map { $0.keyCode }
+        let secondaryKeyCodes = settings.currentProfile.wrappedValue.secondaryModifier.map { $0.keyCode }
+        
+        if allTriggerKeyCodes.contains(keyCode) || secondaryKeyCodes.contains(keyCode) {
             NotificationManager.shared.sendNotification(title: "Invalid Key", body: "You cannot assign a modifier key as a shortcut.")
             isListeningForAssignment = false; return
         }
@@ -294,8 +303,8 @@ class AppHotKeyManager: ObservableObject {
             settings.addAssignment(newAssignment)
         }
         
-        let newTrigger = settings.triggerModifier(for: target)
-        NotificationManager.shared.sendNotification(title: "Shortcut Set!", body: "\(newTrigger.symbol) + \(keyString(for: keyCode)) is ready.")
+        let newTriggerText = modifierKeyCombinationString(for: settings.triggerModifiers(for: target))
+        NotificationManager.shared.sendNotification(title: "Shortcut Set!", body: "\(newTriggerText) + \(keyString(for: keyCode)) is ready.")
         isListeningForAssignment = false
         targetForAssignment = nil
         assignmentIDForReassignment = nil
@@ -317,15 +326,15 @@ class AppHotKeyManager: ObservableObject {
     private func checkForConflicts() {
         var hotkeys: [String: [UUID]] = [:]
         for assignment in settings.currentProfile.wrappedValue.assignments {
-            let trigger = settings.triggerModifier(for: assignment.configuration.target)
-            let hotkeyID = "\(trigger.keyCode)-\(assignment.keyCode)"
+            let triggers = settings.triggerModifiers(for: assignment.configuration.target)
+            let sortedTriggerKeyCodes = triggers.map { $0.keyCode }.sorted()
+            let hotkeyID = "\(sortedTriggerKeyCodes)-\(assignment.keyCode)"
             hotkeys[hotkeyID, default: []].append(assignment.id)
         }
         
         let currentConflicts = hotkeys.values.filter { $0.count > 1 }.flatMap { $0 }
         self.conflictingAssignmentIDs = Set(currentConflicts)
 
-        // Important: This is where new conflicts are detected and notified.
         let newlyConflictingIDs = self.conflictingAssignmentIDs.subtracting(previousConflictingAssignmentIDs)
 
         if !newlyConflictingIDs.isEmpty {
@@ -335,9 +344,9 @@ class AppHotKeyManager: ObservableObject {
             for id in newlyConflictingIDs {
                 guard let assignment = allAssignments.first(where: { $0.id == id }) else { continue }
 
-                let trigger = settings.triggerModifier(for: assignment.configuration.target)
+                let triggers = settings.triggerModifiers(for: assignment.configuration.target)
                 let key = keyString(for: assignment.keyCode)
-                let hotkeyString = "\(trigger.symbol) + \(key)"
+                let hotkeyString = "\(modifierKeyCombinationString(for: triggers)) + \(key)"
                 let assignmentName = getDisplayName(for: assignment.configuration.target) ?? "Unnamed Shortcut"
 
                 conflictingHotkeys[hotkeyString, default: []].append(assignmentName)
@@ -503,13 +512,11 @@ class AppHotKeyManager: ObservableObject {
     }
     
     func keyString(for keyCode: CGKeyCode) -> String {
-        if let assignment = settings.currentProfile.wrappedValue.assignments.first(where: { $0.keyCode == keyCode }) {
-            let trigger = settings.triggerModifier(for: assignment.configuration.target)
-            if keyCode == trigger.keyCode { return trigger.displayName }
-        }
-        if keyCode == settings.currentProfile.wrappedValue.secondaryModifier.keyCode {
-            return settings.currentProfile.wrappedValue.secondaryModifier.displayName
-        }
         return KeyboardLayout.character(for: keyCode) ?? "Key \(keyCode)"
+    }
+    
+    func modifierKeyCombinationString(for keys: [ModifierKey]) -> String {
+        if keys.isEmpty { return "???" }
+        return keys.map { $0.symbol }.joined(separator: " + ")
     }
 }

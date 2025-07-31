@@ -1,3 +1,4 @@
+//Utils.swift
 import AppKit
 import Foundation
 import UserNotifications
@@ -10,6 +11,7 @@ extension Notification.Name {
     static let goToHelpPageInMainWindow = Notification.Name("goToHelpPageInMainWindow")
     static let keyPressEvent = Notification.Name("KeyPressEvent")
     static let shortcutActivated = Notification.Name("shortcutActivated")
+    static let requestAppRestart = Notification.Name("requestAppRestart")
 }
 
 // MARK: - System Managers
