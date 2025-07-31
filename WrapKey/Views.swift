@@ -150,7 +150,11 @@ struct MainSettingsView: View {
     @State private var showingSheet: SheetType?
     
     private var categorizedAssignments: [ShortcutCategory: [Assignment]] {
-        Dictionary(grouping: settings.currentProfile.wrappedValue.assignments.sorted(by: { manager.keyString(for: $0.keyCode) < manager.keyString(for: $1.keyCode) })) { $0.configuration.target.category }
+        Dictionary(grouping: settings.currentProfile.wrappedValue.assignments.sorted(by: {
+            let key0 = $0.keyCode.map { manager.keyString(for: $0) } ?? " "
+            let key1 = $1.keyCode.map { manager.keyString(for: $0) } ?? " "
+            return key0 < key1
+        })) { $0.configuration.target.category }
     }
     private let categoryOrder: [ShortcutCategory] = [.app, .shortcut, .url, .file, .script]
 
@@ -192,6 +196,15 @@ struct MainSettingsView: View {
                         ProgressView().progressViewStyle(.circular).tint(AppTheme.accentColor1(for: colorScheme))
                         Text("Press a key to assign...").font(.title3).foregroundColor(AppTheme.primaryTextColor(for: .dark))
                         Text("Only letter and number keys can be assigned.").font(.callout).foregroundColor(AppTheme.secondaryTextColor(for: .dark)).multilineTextAlignment(.center)
+                        
+                        Button("Set Without Hotkey") {
+                            manager.completeAssignmentWithoutKey()
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(AppTheme.secondaryTextColor(for: .dark))
+                        .controlSize(.large)
+                        .padding(.top, 10)
+                        
                     }.padding(30).background(VisualEffectBlur().clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius))).shadow(radius: 20)
                 }.transition(.opacity)
             }
@@ -236,12 +249,17 @@ struct AppSettingsView: View {
     @State private var potentialNewKey: ModifierKey? = nil
     @State private var profileToDelete: Profile?
     @State private var profileNameField = ""
+    private let authorURL = URL(string: "https://musa.matini.link")!
+
+  
 
     @Namespace private var themePickerNamespace
     private let keyPressPublisher = NotificationCenter.default.publisher(for: .keyPressEvent)
     
     private var appVersion: String {
-        return Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "N/A"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "N/A"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "N/A"
+        return "\(version) (build \(build))"
     }
 
     var body: some View {
@@ -327,7 +345,7 @@ struct AppSettingsView: View {
                         
                         HelpSection(title: "Secondary Keys (for App Assignment)") {
                             ModifierKeySelector(
-                                title: "Secondary Keys",
+                                title: "",
                                 isListening: manager.isListeningForNewModifier && manager.modifierToChange?.type == .secondary,
                                 keys: settings.currentProfile.wrappedValue.secondaryModifier,
                                 onAdd: {
@@ -364,13 +382,22 @@ struct AppSettingsView: View {
                         }
                         
                         VStack(spacing: 4) {
-                            (Text("Made with ") + Text(Image(systemName: "heart.fill")).foregroundColor(AppTheme.accentColor1(for: colorScheme)) + Text(" by Musa Matini"))
-                            Text("The WrapKey App \(appVersion)")
+                            HStack(spacing: 0) {
+                                Text("Made with ")
+                                Text(Image(systemName: "heart.fill"))
+                                    .foregroundColor(AppTheme.accentColor1(for: colorScheme))
+                                Text(" by ")
+                                Link("Musa Matini", destination: authorURL)
+                                    .buttonStyle(.plain)
+                                    .foregroundColor(AppTheme.accentColor1(for: colorScheme))
+                            }
+                            
+                            Text("WrapKey Version \(appVersion)")
                         }
                         .font(.caption)
                         .foregroundColor(AppTheme.secondaryTextColor(for: colorScheme))
                         .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.top, 10)
+                        .padding(.top, 3)
 
                     }
                     .padding()
@@ -416,8 +443,6 @@ struct AppSettingsView: View {
         let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
         let newKey = ModifierKey.from(keyCode: keyCode)
         
-        // --- START OF NEW VALIDATION LOGIC ---
-
         let currentKeysForThisSelector: [ModifierKey]
         if changeInfo.type == .trigger {
             currentKeysForThisSelector = settings.currentProfile.wrappedValue.triggerModifiers[changeInfo.category] ?? []
@@ -430,8 +455,6 @@ struct AppSettingsView: View {
             return
         }
         
-        // A conflict only exists if two key combinations are IDENTICAL.
-        // Being a subset (e.g., Cmd vs Cmd+Opt) is a valid, non-conflicting state.
         if changeInfo.type == .trigger {
             let potentialNewTriggerSet = Set((settings.currentProfile.wrappedValue.triggerModifiers[changeInfo.category] ?? []) + [newKey])
             let secondaryKeySet = Set(settings.currentProfile.wrappedValue.secondaryModifier)
@@ -450,8 +473,6 @@ struct AppSettingsView: View {
                 }
             }
         }
-        
-        // --- END OF NEW VALIDATION LOGIC ---
 
         if newKey.isTrueModifier {
             settings.addModifierKey(newKey, for: changeInfo.category, type: changeInfo.type)
@@ -786,9 +807,11 @@ struct ModifierKeySelector: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .fontWeight(.semibold)
-                .padding(.horizontal, 8)
+            if !title.isEmpty {
+                Text(title)
+                    .fontWeight(.semibold)
+                    .padding(.horizontal, 8)
+            }
             
             HStack(spacing: 8) {
                 if keys.isEmpty {
@@ -912,20 +935,29 @@ struct AssignmentRow: View {
                 }
                 Spacer()
                 
-                let triggerKeys = settings.triggerModifiers(for: assignment.configuration.target)
-                let triggerString = manager.modifierKeyCombinationString(for: triggerKeys)
-                
-                PillCard(content: { Text("\(triggerString) + \(manager.keyString(for: assignment.keyCode))").font(.system(.body, design: .monospaced).weight(.semibold)) }, cornerRadius: AppTheme.cornerRadius)
-                
-                Button(action: {
-                    if isEditable {
-                        showingEditOptions = true
-                    } else {
+                if let keyCode = assignment.keyCode {
+                    let triggerKeys = settings.triggerModifiers(for: assignment.configuration.target)
+                    let triggerString = manager.modifierKeyCombinationString(for: triggerKeys)
+                    PillCard(content: { Text("\(triggerString) + \(manager.keyString(for: keyCode))").font(.system(.body, design: .monospaced).weight(.semibold)) }, cornerRadius: AppTheme.cornerRadius)
+                } else {
+                    Button(action: {
                         manager.listenForNewAssignment(target: assignment.configuration.target, assignmentID: assignment.id)
-                    }
-                }) {
-                    PillCard(content: { Image(systemName: "pencil.circle.fill").font(.system(.body, design: .monospaced).weight(.semibold)).foregroundColor(AppTheme.accentColor1(for: colorScheme)) }, cornerRadius: AppTheme.cornerRadius)
-                }.buttonStyle(.plain)
+                    }) {
+                        PillCard(content: {
+                            Text("Set Hotkey")
+                                .font(.system(.body, design: .monospaced).weight(.semibold))
+                                .foregroundColor(AppTheme.accentColor1(for: colorScheme))
+                        }, cornerRadius: AppTheme.cornerRadius)
+                    }.buttonStyle(.plain)
+                }
+
+                if isEditable {
+                    Button(action: {
+                        showingEditOptions = true
+                    }) {
+                        PillCard(content: { Image(systemName: "pencil.circle.fill").font(.system(.body, design: .monospaced).weight(.semibold)).foregroundColor(AppTheme.accentColor1(for: colorScheme)) }, cornerRadius: AppTheme.cornerRadius)
+                    }.buttonStyle(.plain)
+                }
                 
                 Button(action: { settings.currentProfile.wrappedValue.assignments.removeAll(where: { $0.id == assignment.id }) }) {
                     PillCard(content: { Image(systemName: "trash.fill").font(.system(.body, design: .monospaced).weight(.semibold)).foregroundColor(AppTheme.secondaryTextColor(for: colorScheme)) }, cornerRadius: AppTheme.cornerRadius)

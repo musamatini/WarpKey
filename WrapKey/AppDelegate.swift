@@ -87,9 +87,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         let task = Process()
         task.launchPath = "/bin/sh"
         task.arguments = ["-c", script]
-
-        // This prevents the new process from being a child of the old one
-        // which is crucial for a clean restart.
         task.standardError = nil
         task.standardInput = nil
         task.standardOutput = nil
@@ -173,15 +170,57 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     }
 
     @objc func statusBarButtonClicked() {
-        let mainWindow = NSApplication.shared.windows.first { $0.title == "WrapKey" }
+        let menu = NSMenu()
 
-        if let window = mainWindow, window.isVisible {
-            window.close()
-        } else {
-            NSApp.setActivationPolicy(.regular)
-            NSApp.activate(ignoringOtherApps: true)
-            openWindowAction?(id: "main-menu")
+        let openAppItem = NSMenuItem(title: "Open WrapKey", action: #selector(handleOpenMainWindow), keyEquivalent: "")
+        openAppItem.target = self
+        menu.addItem(openAppItem)
+        menu.addItem(.separator())
+
+        let allAssignments = settings.currentProfile.wrappedValue.assignments
+        let categorizedAssignments = Dictionary(grouping: allAssignments) { $0.configuration.target.category }
+        let categoryOrder: [ShortcutCategory] = [.app, .shortcut, .url, .file, .script]
+
+        var hasContent = false
+        for category in categoryOrder {
+            if let assignments = categorizedAssignments[category]?.sorted(by: { (hotKeyManager.getDisplayName(for: $0.configuration.target) ?? "") < (hotKeyManager.getDisplayName(for: $1.configuration.target) ?? "") }), !assignments.isEmpty {
+                hasContent = true
+                let header = NSMenuItem(title: category.rawValue, action: nil, keyEquivalent: "")
+                let attributes: [NSAttributedString.Key: Any] = [.font: NSFont.boldSystemFont(ofSize: NSFont.smallSystemFontSize)]
+                header.attributedTitle = NSAttributedString(string: category.rawValue, attributes: attributes)
+                header.isEnabled = false
+                menu.addItem(header)
+
+                for assignment in assignments {
+                    let title = hotKeyManager.getDisplayName(for: assignment.configuration.target) ?? "Unknown Shortcut"
+                    let menuItem = NSMenuItem(title: title, action: #selector(menuItemTriggered(_:)), keyEquivalent: "")
+                    menuItem.target = self
+                    menuItem.representedObject = assignment
+                    menuItem.image = hotKeyManager.getIcon(for: assignment.configuration.target)
+                    menu.addItem(menuItem)
+                }
+            }
         }
+        
+        if !hasContent {
+            let noShortcutsItem = NSMenuItem(title: "No shortcuts configured.", action: nil, keyEquivalent: "")
+            noShortcutsItem.isEnabled = false
+            menu.addItem(noShortcutsItem)
+        }
+
+        if let lastItem = menu.items.last, !lastItem.isSeparatorItem {
+            menu.addItem(.separator())
+        }
+
+        let quitItem = NSMenuItem(title: "Quit WrapKey", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(quitItem)
+        
+        statusItem?.popUpMenu(menu)
+    }
+    
+    @objc func menuItemTriggered(_ sender: NSMenuItem) {
+        guard let assignment = sender.representedObject as? Assignment else { return }
+        _ = hotKeyManager.handleActivation(assignment: assignment)
     }
 
     // MARK: - Notification Handlers
@@ -195,9 +234,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
     }
         
-    @objc private func handleOpenMainWindow() {
+    @objc func handleOpenMainWindow() {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+        openWindowAction?(id: "main-menu")
     }
     
     @objc private func handleGoToHelpPage() {
@@ -237,9 +277,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
         switch response.actionIdentifier {
         case "OPEN_ACTION":
-            NSApp.setActivationPolicy(.regular)
-            NSApp.activate(ignoringOtherApps: true)
-            openWindowAction?(id: "main-menu")
+            handleOpenMainWindow()
         case "UPDATE_ACTION":
             updaterController.checkForUpdates(nil)
         default:

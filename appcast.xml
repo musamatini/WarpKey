@@ -6,6 +6,35 @@
     <description>Most recent changes with links to updates.</description>
     <language>en</language>
     <item>
+      <title>Version 1.0.3</title>
+      <pubDate>Thu, 31 Jul 2024 06:30:00 +0300</pubDate>
+      <description>
+        <![CDATA[
+            <h3>What's New in WrapKey 1.0.3</h3>
+            <li>
+              <ul>
+                <li>
+                  <strong>New Menu Bar Launcher:</strong> The menu bar icon now opens a quick-launch menu to run your shortcuts directly.
+                </li>
+                <li>
+                  <strong>Hotkey-Optional Shortcuts:</strong> You can now create shortcuts without assigning a hotkey, making them accessible from the new menu.
+                </li>
+                <li>
+                  <strong>Fixes & Polish:</strong> Corrected the app version display, made the author credit a colored link, and cleaned up the UI for a better experience.
+                </li>
+              </ul>
+            </li>
+        ]]>
+      </description>
+      <enclosure
+        url="https://github.com/musamatini/WrapKey/releases/download/v1.0.3/WrapKey-Universal-Stable-v1.0.3.zip"
+        sparkle:version="4"
+        sparkle:shortVersionString="1.0.3"
+        length="3153540"
+        type="application/octet-stream"
+        sparkle:edSignature="xi4kBlVNTGLsshRW2Nak4lXzL6HlhAVs55AF+rAasGXWU35QTFmf1PAhs4EctYLfNWqq99ZgGdQdLITov2JjBw==" />
+    </item>
+    <item>
       <title>Version 1.0.2</title>
       <pubDate>Thu, 31 Jul 2024 05:30:00 +0300</pubDate>
       <description>

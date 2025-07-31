@@ -283,6 +283,26 @@ class AppHotKeyManager: ObservableObject {
         isListeningForAssignment = true
     }
     
+    func completeAssignmentWithoutKey() {
+        guard let target = targetForAssignment else {
+            isListeningForAssignment = false
+            return
+        }
+
+        if let assignmentID = assignmentIDForReassignment {
+            settings.updateAssignment(id: assignmentID, newKeyCode: nil)
+            NotificationManager.shared.sendNotification(title: "Hotkey Removed", body: "The shortcut will no longer be triggered by a key press.")
+        } else {
+            let newAssignment = Assignment(keyCode: nil, configuration: ShortcutConfiguration(target: target))
+            settings.addAssignment(newAssignment)
+            NotificationManager.shared.sendNotification(title: "Shortcut Added", body: "You can assign a hotkey later from the main window.")
+        }
+        
+        isListeningForAssignment = false
+        targetForAssignment = nil
+        assignmentIDForReassignment = nil
+    }
+    
     private func completeAssignment(event: CGEvent) {
         let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
         
@@ -326,9 +346,11 @@ class AppHotKeyManager: ObservableObject {
     private func checkForConflicts() {
         var hotkeys: [String: [UUID]] = [:]
         for assignment in settings.currentProfile.wrappedValue.assignments {
+            guard let keyCode = assignment.keyCode else { continue }
+            
             let triggers = settings.triggerModifiers(for: assignment.configuration.target)
             let sortedTriggerKeyCodes = triggers.map { $0.keyCode }.sorted()
-            let hotkeyID = "\(sortedTriggerKeyCodes)-\(assignment.keyCode)"
+            let hotkeyID = "\(sortedTriggerKeyCodes)-\(keyCode)"
             hotkeys[hotkeyID, default: []].append(assignment.id)
         }
         
@@ -342,10 +364,11 @@ class AppHotKeyManager: ObservableObject {
             var conflictingHotkeys: [String: [String]] = [:]
 
             for id in newlyConflictingIDs {
-                guard let assignment = allAssignments.first(where: { $0.id == id }) else { continue }
+                guard let assignment = allAssignments.first(where: { $0.id == id }),
+                      let keyCode = assignment.keyCode else { continue }
 
                 let triggers = settings.triggerModifiers(for: assignment.configuration.target)
-                let key = keyString(for: assignment.keyCode)
+                let key = keyString(for: keyCode)
                 let hotkeyString = "\(modifierKeyCombinationString(for: triggers)) + \(key)"
                 let assignmentName = getDisplayName(for: assignment.configuration.target) ?? "Unnamed Shortcut"
 
@@ -364,7 +387,7 @@ class AppHotKeyManager: ObservableObject {
     }
 
     // MARK: - Shortcut Activation
-    private func handleActivation(assignment: Assignment) -> Bool {
+    func handleActivation(assignment: Assignment) -> Bool {
         let config = assignment.configuration
         let workItem = DispatchWorkItem {
             NotificationCenter.default.post(name: .shortcutActivated, object: nil)
@@ -484,7 +507,7 @@ class AppHotKeyManager: ObservableObject {
     }
     
     // MARK: - Helpers
-    private func getDisplayName(for target: ShortcutTarget) -> String? {
+    func getDisplayName(for target: ShortcutTarget) -> String? {
         switch target {
         case .app(let bundleId):
             return getAppName(for: bundleId)
@@ -509,6 +532,34 @@ class AppHotKeyManager: ObservableObject {
     func getAppIcon(for bundleId: String) -> NSImage? {
         guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else { return nil }
         return NSWorkspace.shared.icon(forFile: appURL.path)
+    }
+    
+    func getIcon(for target: ShortcutTarget, size: NSSize = NSSize(width: 18, height: 18)) -> NSImage? {
+        var image: NSImage?
+        switch target {
+        case .app(let bundleId):
+            image = getAppIcon(for: bundleId)
+        case .url:
+            image = NSImage(systemSymbolName: "globe", accessibilityDescription: "URL")
+        case .file:
+            image = NSImage(systemSymbolName: "doc", accessibilityDescription: "File")
+        case .script:
+            image = NSImage(systemSymbolName: "terminal", accessibilityDescription: "Script")
+        case .shortcut:
+            image = NSImage(systemSymbolName: "square.stack.3d.up.fill", accessibilityDescription: "Shortcut")
+        }
+        
+        guard let baseImage = image else { return nil }
+        
+        let resizedImage = NSImage(size: size, flipped: false) { rect in
+            baseImage.draw(in: rect)
+            return true
+        }
+        
+        if target.category != .app {
+            resizedImage.isTemplate = true
+        }
+        return resizedImage
     }
     
     func keyString(for keyCode: CGKeyCode) -> String {

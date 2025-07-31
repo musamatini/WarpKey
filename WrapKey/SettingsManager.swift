@@ -31,7 +31,7 @@ enum ShortcutCategory: String, CaseIterable, Codable, Hashable, Identifiable {
 
 struct Assignment: Codable, Identifiable, Hashable {
     var id = UUID()
-    var keyCode: CGKeyCode
+    var keyCode: CGKeyCode?
     var configuration: ShortcutConfiguration
 }
 
@@ -146,21 +146,17 @@ class SettingsManager: ObservableObject {
         let oldProfilesKeyV4 = "WrapKey_Profiles_v4"
         let oldProfilesKeyV3 = "WrapKey_Profiles_v3"
         
-        // Attempt to load current version first
         if let data = UserDefaults.standard.data(forKey: key),
            let decodedProfiles = try? JSONDecoder().decode([Profile].self, from: data),
            !decodedProfiles.isEmpty {
             return decodedProfiles
         }
         
-        // Migration from v4
         if let oldData = UserDefaults.standard.data(forKey: oldProfilesKeyV4) {
+            struct OldAssignmentV4: Codable { var id: UUID; var keyCode: CGKeyCode; var configuration: ShortcutConfiguration }
             struct OldProfileV4: Codable {
-                var id: UUID
-                var name: String
-                var triggerModifiers: [ShortcutCategory: ModifierKey]
-                var secondaryModifier: ModifierKey
-                var assignments: [Assignment]
+                var id: UUID; var name: String; var triggerModifiers: [ShortcutCategory: ModifierKey]
+                var secondaryModifier: ModifierKey; var assignments: [OldAssignmentV4]
             }
             if let decodedOldProfiles = try? JSONDecoder().decode([OldProfileV4].self, from: oldData) {
                 let migrated = decodedOldProfiles.map { old -> Profile in
@@ -168,7 +164,10 @@ class SettingsManager: ObservableObject {
                     for category in ShortcutCategory.allCases where newTriggers[category] == nil {
                         newTriggers[category] = newTriggers[.app] ?? [ModifierKey.from(keyCode: 54)]
                     }
-                    return Profile(id: old.id, name: old.name, triggerModifiers: newTriggers, secondaryModifier: [old.secondaryModifier], assignments: old.assignments)
+                    let newAssignments = old.assignments.map { oldA in
+                        Assignment(id: oldA.id, keyCode: oldA.keyCode, configuration: oldA.configuration)
+                    }
+                    return Profile(id: old.id, name: old.name, triggerModifiers: newTriggers, secondaryModifier: [old.secondaryModifier], assignments: newAssignments)
                 }
                 UserDefaults.standard.removeObject(forKey: oldProfilesKeyV4)
                 print("[Migration] Successfully migrated profiles from v4 to v5.")
@@ -176,10 +175,8 @@ class SettingsManager: ObservableObject {
             }
         }
         
-        // Clean up old v3 key if present
         UserDefaults.standard.removeObject(forKey: oldProfilesKeyV3)
         
-        // If all else fails, create a default profile
         return [createDefaultProfile()]
     }
     
@@ -209,7 +206,7 @@ class SettingsManager: ObservableObject {
         currentProfile.wrappedValue.assignments.append(assignment)
     }
     
-    func updateAssignment(id: UUID, newKeyCode: CGKeyCode) {
+    func updateAssignment(id: UUID, newKeyCode: CGKeyCode?) {
         if let assignmentIndex = currentProfile.wrappedValue.assignments.firstIndex(where: { $0.id == id }) {
             currentProfile.wrappedValue.assignments[assignmentIndex].keyCode = newKeyCode
         }
