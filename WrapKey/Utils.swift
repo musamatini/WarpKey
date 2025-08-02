@@ -1,19 +1,20 @@
-//Utils.swift
+// utils.swift
+
 import AppKit
 import Foundation
 import UserNotifications
 import CoreGraphics
 import Carbon.HIToolbox
 
-// MARK: - Notifications
 extension Notification.Name {
     static let openMainWindow = Notification.Name("openMainWindow")
     static let goToHelpPageInMainWindow = Notification.Name("goToHelpPageInMainWindow")
     static let shortcutActivated = Notification.Name("shortcutActivated")
     static let requestAppRestart = Notification.Name("requestAppRestart")
+    static let showCheatsheet = Notification.Name("showCheatsheet")
+    static let hideCheatsheet = Notification.Name("hideCheatsheet")
 }
 
-// MARK: - System Managers
 struct AccessibilityManager {
     static func checkPermissions() -> Bool {
         AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false] as CFDictionary)
@@ -28,7 +29,6 @@ class NotificationManager {
     static let shared = NotificationManager()
     private let center = UNUserNotificationCenter.current()
     
-    // MARK: - Notification Category Identifiers
     private let assignmentCategoryIdentifier = "ASSIGNMENT_CATEGORY"
     private let updateCategoryIdentifier = "UPDATE_AVAILABLE_CATEGORY"
     
@@ -85,7 +85,6 @@ class NotificationManager {
     }
 }
 
-// MARK: - System Utilities
 struct ShortcutRunner {
     static func getAllShortcutNames(completion: @escaping ([String]) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
@@ -117,23 +116,31 @@ struct ShortcutRunner {
     }
 }
 
-
-// MARK: - Keyboard Utilities
 struct KeyboardLayout {
     private static let specialKeyNames: [CGKeyCode: String] = [
-        0x24: "Return",      0x30: "Tab",         0x31: "Space",
-        0x33: "Delete",      0x35: "Escape",      0x39: "Caps Lock",
-        0x7A: "F1",          0x78: "F2",          0x63: "F3",
-        0x76: "F4",          0x60: "F5",          0x61: "F6",
-        0x62: "F7",          0x64: "F8",          0x65: "F9",
-        0x6D: "F10",         0x67: "F11",         0x6F: "F12",
-        0x69: "F13",         0x6B: "F14",         0x71: "F15",
-        0x6A: "F16",         0x40: "F17",         0x4F: "F18",
-        0x50: "F19",
-        0x72: "Help",        0x73: "Home",        0x74: "Page Up",
-        0x75: "Forward Delete", 0x77: "End",      0x79: "Page Down",
-        0x7B: "←",           0x7C: "→",           0x7D: "↓",
-        0x7E: "↑"
+        // Standard Function Keys
+        0x7A: "F1", 0x78: "F2", 0x63: "F3", 0x76: "F4", 0x60: "F5", 0x61: "F6",
+        0x62: "F7",
+        0x64: "F8",
+        0x65: "F9",
+        0x6D: "F10", 0x67: "F11", 0x6F: "F12",
+        0x69: "F13", 0x6B: "F14", 0x71: "F15", 0x6A: "F16", 0x40: "F17",
+        0x4F: "F18", 0x50: "F19",
+        
+        // Editing & Navigation
+        0x24: "Return", 0x30: "Tab", 0x31: "Space", 0x33: "Delete",
+        0x75: "Fwd Del", // Forward Delete
+        0x35: "Esc", 0x39: "Caps Lock",
+        0x72: "Help", 0x73: "Home", 0x74: "Page Up", 0x77: "End",
+        0x79: "Page Down",
+        
+        // Arrow Keys
+        0x7B: "←", 0x7C: "→", 0x7D: "↓", 0x7E: "↑",
+        
+        // Media & System Keys
+        0x4A: "Mute",
+        0x48: "Volume Up",
+        0x49: "Volume Down"
     ]
     
     static func character(for keyCode: CGKeyCode) -> String? {
@@ -164,7 +171,6 @@ struct KeyboardLayout {
     }
 }
 
-// MARK: - Appearance Utilities
 extension NSAppearance {
     var isDark: Bool {
         if bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {

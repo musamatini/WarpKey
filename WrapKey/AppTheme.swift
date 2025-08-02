@@ -2,8 +2,7 @@
 import Foundation
 import SwiftUI
 
-// MARK: - Title
-// App Design System
+
 
 struct AppTheme {
     // MARK: - Core Palette
@@ -21,7 +20,7 @@ struct AppTheme {
     private static let lightSecondaryText = Color(hex: "6D6D72")
 
     // MARK: - Layout
-    static let cornerRadius: CGFloat = 12
+    static let cornerRadius: CGFloat = 10
 
     // MARK: - Dynamic Theme Application
     static func accentColor1(for scheme: ColorScheme) -> Color {

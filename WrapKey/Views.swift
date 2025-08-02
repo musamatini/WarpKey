@@ -1,24 +1,77 @@
-//Views.swift
+// views.swift
 import SwiftUI
 import AppKit
 import Sparkle
 
-// MARK: - Navigation Enums
+struct AppInfo: Identifiable, Hashable {
+    let id: String
+    let name: String
+    let url: URL
+    let icon: NSImage
+}
+
+struct AppScanner {
+    static func getAllApps(completion: @escaping ([AppInfo]) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            var applications = [AppInfo]()
+            var seenBundleIDs = Set<String>()
+
+            let fileManager = FileManager.default
+            let domains: [FileManager.SearchPathDomainMask] = [.systemDomainMask, .localDomainMask, .userDomainMask]
+            
+            for domain in domains {
+                if let appDirs = NSSearchPathForDirectoriesInDomains(.applicationDirectory, domain, true) as? [String] {
+                    for appDir in appDirs {
+                        guard let enumerator = fileManager.enumerator(
+                            at: URL(fileURLWithPath: appDir),
+                            includingPropertiesForKeys: nil,
+                            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+                        ) else { continue }
+
+                        for case let url as URL in enumerator {
+                            if url.pathExtension == "app" {
+                                guard let bundle = Bundle(url: url),
+                                      let bundleId = bundle.bundleIdentifier,
+                                      !seenBundleIDs.contains(bundleId) else { continue }
+                                
+                                let appName = (bundle.object(forInfoDictionaryKey: "CFBundleName") as? String) ?? url.deletingPathExtension().lastPathComponent
+                                let icon = NSWorkspace.shared.icon(forFile: url.path)
+                                
+                                applications.append(AppInfo(id: bundleId, name: appName, url: url, icon: icon))
+                                seenBundleIDs.insert(bundleId)
+                            }
+                        }
+                    }
+                }
+            }
+            
+            let finderBundleId = "com.apple.finder"
+            if !seenBundleIDs.contains(finderBundleId), let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: finderBundleId) {
+                let icon = NSWorkspace.shared.icon(forFile: url.path)
+                applications.append(AppInfo(id: finderBundleId, name: "Finder", url: url, icon: icon))
+                seenBundleIDs.insert(finderBundleId)
+            }
+            
+            DispatchQueue.main.async {
+                completion(applications.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending })
+            }
+        }
+    }
+}
+
 enum SheetType: Identifiable, Equatable {
-    case addURL, addFile, addScript, addShortcut
+    case addURL, addScript, addShortcut, addApp
     case editURL(assignment: Assignment)
     case editScript(assignment: Assignment)
-    case editFile(assignment: Assignment)
 
     var id: String {
         switch self {
         case .addURL: "addURL"
-        case .addFile: "addFile"
         case .addScript: "addScript"
         case .addShortcut: "addShortcut"
+        case .addApp: "addApp"
         case .editURL(let a): "editURL-\(a.id)"
         case .editScript(let a): "editScript-\(a.id)"
-        case .editFile(let a): "editFile-\(a.id)"
         }
     }
 }
@@ -27,7 +80,22 @@ enum AppPage: Hashable {
     case welcome, main, help, appSettings
 }
 
-// MARK: - Root Views
+struct SheetContainer<Content: View>: View {
+    let content: Content
+    
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        content
+            .background(VisualEffectBlur())
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
+            .shadow(radius: 20)
+            .transition(.scale.combined(with: .opacity))
+    }
+}
+
 struct MenuView: View {
     @ObservedObject var manager: AppHotKeyManager
     @ObservedObject var launchManager: LaunchAtLoginManager
@@ -99,6 +167,7 @@ struct MainTabView: View {
                 AppSettingsView(
                     launchManager: launchManager,
                     updaterViewModel: updaterViewModel,
+                    manager: manager,
                     goBack: { selectedTab = .main }
                 )
                 .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)))
@@ -112,7 +181,6 @@ struct MainTabView: View {
     }
 }
 
-// MARK: - Main Settings Screen
 struct MainSettingsView: View {
     @ObservedObject var manager: AppHotKeyManager
     @EnvironmentObject var settings: SettingsManager
@@ -158,20 +226,26 @@ struct MainSettingsView: View {
             FooterView(onShowHelp: showHelpPage, onShowAppSettings: showAppSettingsPage, sheetType: $showingSheet)
                 .environmentObject(manager)
         }
-        .sheet(item: $showingSheet) { item in
+        .customSheet(
+            isPresented: Binding(
+                get: { showingSheet != nil && showingSheet?.id.starts(with: "add") ?? false },
+                set: { if !$0 { showingSheet = nil } }
+            ),
+            animated: false
+        ) {
             let startRecording: (ShortcutTarget) -> Void = { target in
                 manager.startRecording(for: .create(target: target))
             }
             
-            switch item {
+            switch showingSheet {
             case .addURL:
-                AddURLView { url in startRecording(.url(url)) }
-            case .addFile:
-                AddFileView { path in startRecording(.file(path)) }
+                AddURLView(onSave: { url in startRecording(.url(url)) }, showingSheet: $showingSheet)
             case .addScript:
-                AddScriptView { command, runsInTerminal in startRecording(.script(command: command, runsInTerminal: runsInTerminal)) }
+                AddScriptView(onSave: { command, runsInTerminal in startRecording(.script(command: command, runsInTerminal: runsInTerminal)) }, showingSheet: $showingSheet)
             case .addShortcut:
-                ShortcutPickerView { name in startRecording(.shortcut(name: name)) }
+                ShortcutPickerView(onSave: { name in startRecording(.shortcut(name: name)) }, showingSheet: $showingSheet)
+            case .addApp:
+                AddAppView(onSave: { bundleId in startRecording(.app(bundleId: bundleId)) }, showingSheet: $showingSheet)
             default:
                 EmptyView()
             }
@@ -179,11 +253,10 @@ struct MainSettingsView: View {
     }
 }
 
-
-// MARK: - App Settings Screen
 struct AppSettingsView: View {
     @ObservedObject var launchManager: LaunchAtLoginManager
     @ObservedObject var updaterViewModel: UpdaterViewModel
+    @ObservedObject var manager: AppHotKeyManager
     
     @EnvironmentObject var settings: SettingsManager
     @Environment(\.dismiss) private var dismiss
@@ -219,6 +292,28 @@ struct AppSettingsView: View {
 
                     HelpSection(title: "Appearance") {
                         CustomSegmentedPicker(title: "Appearance", selection: $settings.colorScheme, in: themePickerNamespace)
+                    }
+                    
+                    HelpSection(title: "Cheatsheet") {
+                        Text("Hold a global hotkey to quickly see all of your assigned shortcuts for the current profile.")
+                            .font(.callout)
+                            .foregroundColor(AppTheme.secondaryTextColor(for: colorScheme))
+                        
+                        PillCard(content: {
+                            HStack {
+                                Text("Cheatsheet Hotkey")
+                                Spacer()
+                                Text(manager.shortcutKeyCombinationString(for: settings.cheatsheetShortcut))
+                                    .font(.system(.body, design: .monospaced))
+                            }
+                        }, cornerRadius: AppTheme.cornerRadius)
+                        
+                        HStack(spacing: 10) {
+                            Button("Set Shortcut") { manager.startRecording(for: .cheatsheet) }
+                            Button("Clear") { settings.cheatsheetShortcut = [] }
+                                .disabled(settings.cheatsheetShortcut.isEmpty)
+                        }
+                        .buttonStyle(PillButtonStyle())
                     }
 
                     HelpSection(title: "Profiles") {
@@ -332,7 +427,98 @@ struct AppSettingsView: View {
     }
 }
 
-// MARK: - Permissions Screen
+struct CheatsheetView: View {
+    @ObservedObject var manager: AppHotKeyManager
+    @EnvironmentObject var settings: SettingsManager
+    @Environment(\.colorScheme) private var colorScheme
+    
+    private var allAssignments: [Assignment] {
+        settings.currentProfile.wrappedValue.assignments.filter { !$0.shortcut.isEmpty }
+    }
+    
+    private var categorizedAssignments: [ShortcutCategory: [Assignment]] {
+        Dictionary(grouping: allAssignments) { $0.configuration.target.category }
+    }
+    
+    private let categoryOrder: [ShortcutCategory] = [.app, .shortcut, .url, .file, .script]
+    
+    // Updated to allow 4-5 items per row on a wider view
+    private let columns: [GridItem] = [
+        GridItem(.adaptive(minimum: 250), spacing: 16)
+    ]
+    
+    private func hide() {
+        NotificationCenter.default.post(name: .hideCheatsheet, object: nil)
+    }
+    
+    var body: some View {
+        ZStack {
+            VisualEffectBlur()
+                .onTapGesture { hide() }
+
+            VStack(spacing: 0) {
+                Text("WrapKey Shortcuts Cheatsheet")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .padding()
+                
+                Text("Profile: \(settings.currentProfile.wrappedValue.name)")
+                    .font(.headline)
+                    .foregroundColor(AppTheme.secondaryTextColor(for: colorScheme))
+                    .padding(.bottom)
+                
+                if allAssignments.isEmpty {
+                    Spacer()
+                    Text("No shortcuts assigned in this profile.")
+                        .font(.title3)
+                        .foregroundColor(AppTheme.secondaryTextColor(for: colorScheme))
+                    Spacer()
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 16) {
+                            ForEach(categoryOrder, id: \.self) { category in
+                                if let items = categorizedAssignments[category]?.sorted(by: { (manager.getDisplayName(for: $0.configuration.target) ?? "") < (manager.getDisplayName(for: $1.configuration.target) ?? "") }), !items.isEmpty {
+                                    
+                                    Text(category.rawValue)
+                                        .font(.title3.weight(.bold))
+                                        .padding(.bottom, 4)
+                                        .padding(.top, 20)
+
+                                    LazyVGrid(columns: columns, spacing: 12) {
+                                        ForEach(items) { assignment in
+                                            HStack(spacing: 12) {
+                                                ShortcutIcon(target: assignment.configuration.target, manager: manager)
+                                                    .frame(width: 28, height: 28)
+                                                ShortcutTitle(target: assignment.configuration.target, manager: manager)
+                                                Spacer()
+                                                Text(manager.shortcutKeyCombinationString(for: assignment.shortcut))
+                                                    .font(.system(.body, design: .monospaced).weight(.semibold))
+                                                    .padding(.horizontal, 10)
+                                                    .padding(.vertical, 5)
+                                                    .background(AppTheme.pickerBackgroundColor(for: colorScheme))
+                                                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                            }
+                                            .padding(12)
+                                            .background(AppTheme.pillBackgroundColor(for: colorScheme))
+                                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                }
+            }
+            .padding(40)
+            .focusable()
+            .onExitCommand {
+                hide()
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius * 2, style: .continuous))
+    }
+}
+
 struct PermissionsRestartRequiredView: View {
     @Environment(\.colorScheme) private var colorScheme
     
@@ -361,8 +547,6 @@ struct PermissionsRestartRequiredView: View {
     }
 }
 
-
-// MARK: - Welcome Screen
 struct WelcomePage: View {
     @ObservedObject var manager: AppHotKeyManager
     @Environment(\.colorScheme) private var colorScheme
@@ -409,7 +593,6 @@ struct WelcomePage: View {
     }
 }
 
-// MARK: - Help Screen
 struct HelpView: View {
     var goBack: () -> Void
     @Environment(\.dismiss) private var dismiss
@@ -451,7 +634,6 @@ struct HelpView: View {
     }
 }
 
-// MARK: - Reusable View Components
 struct ProfileRowView: View {
     @Environment(\.colorScheme) private var colorScheme
     let profile: Profile
@@ -521,7 +703,7 @@ struct CategoryHeader: View {
             }
         )
         .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
-        .cornerRadius(8)
+        .cornerRadius(AppTheme.cornerRadius)
     }
 }
 
@@ -540,7 +722,6 @@ struct EmptyStateView: View {
     }
 }
 
-// MARK: - Assignment Row & Subviews
 struct AssignmentRow: View {
     @ObservedObject var manager: AppHotKeyManager
     @EnvironmentObject var settings: SettingsManager
@@ -597,6 +778,7 @@ struct AssignmentRow: View {
                     PillCard(content: {
                         Image(systemName: "pencil")
                             .font(.system(.body, design: .monospaced).weight(.semibold))
+                            .frame(width: 18, height: 18, alignment: .center)
                             .foregroundColor(AppTheme.accentColor1(for: colorScheme))
                     }, cornerRadius: AppTheme.cornerRadius)
                 }.buttonStyle(.plain)
@@ -607,6 +789,7 @@ struct AssignmentRow: View {
                     PillCard(content: {
                         Image(systemName: "trash.fill")
                             .font(.system(.body, design: .monospaced).weight(.semibold))
+                            .frame(width: 18, height: 18, alignment: .center)
                             .foregroundColor(AppTheme.secondaryTextColor(for: colorScheme))
                     }, cornerRadius: AppTheme.cornerRadius)
                 }.buttonStyle(.plain)
@@ -637,32 +820,35 @@ struct AssignmentRow: View {
                     switch assignment.configuration.target {
                     case .url: sheetType = .editURL(assignment: assignment)
                     case .script: sheetType = .editScript(assignment: assignment)
-                    case .file: sheetType = .editFile(assignment: assignment)
+                    case .file:
+                        let panel = NSOpenPanel()
+                        panel.canChooseFiles = true
+                        panel.canChooseDirectories = true
+                        if panel.runModal() == .OK, let url = panel.url {
+                            settings.updateAssignmentContent(id: assignment.id, newTarget: .file(url.path))
+                        }
                     default: break
                     }
                 }
             }
             Button("Cancel", role: .cancel) {}
         }
-        .sheet(item: $sheetType) { item in
-            switch item {
+        .customSheet(isPresented: Binding(get: { sheetType != nil }, set: { if !$0 { sheetType = nil } }), animated: false) {
+            switch sheetType {
             case .editURL(let assignment):
                 if case .url(let url) = assignment.configuration.target {
-                    EditURLView(assignmentID: assignment.id, initialURL: url, onSave: { id, newURL in settings.updateAssignmentContent(id: id, newTarget: .url(newURL)) })
+                    EditURLView(assignmentID: assignment.id, initialURL: url, onSave: { id, newURL in settings.updateAssignmentContent(id: id, newTarget: .url(newURL)) }, isPresented: Binding(get: { sheetType == .editURL(assignment: assignment) }, set: { if !$0 { sheetType = nil }}))
                 }
             case .editScript(let assignment):
                 if case .script(let command, let runsInTerminal) = assignment.configuration.target {
-                    EditScriptView(assignmentID: assignment.id, initialCommand: command, initialRunsInTerminal: runsInTerminal, onSave: { id, newCommand, newRunsInTerminal in settings.updateAssignmentContent(id: id, newTarget: .script(command: newCommand, runsInTerminal: newRunsInTerminal)) })
+                    EditScriptView(assignmentID: assignment.id, initialCommand: command, initialRunsInTerminal: runsInTerminal, onSave: { id, newCommand, newRunsInTerminal in settings.updateAssignmentContent(id: id, newTarget: .script(command: newCommand, runsInTerminal: newRunsInTerminal)) }, isPresented: Binding(get: { sheetType == .editScript(assignment: assignment) }, set: { if !$0 { sheetType = nil }}))
                 }
-            case .editFile(let assignment):
-                EditFileView(assignmentID: assignment.id, onSave: { id, newPath in settings.updateAssignmentContent(id: id, newTarget: .file(newPath)) })
-            default: EmptyView()
+            default:
+                EmptyView()
             }
         }
     }
 }
-
-
 
 struct ShortcutRecordingView: View {
     @ObservedObject var manager: AppHotKeyManager
@@ -675,6 +861,8 @@ struct ShortcutRecordingView: View {
             return manager.getDisplayName(for: target) ?? "..."
         case .edit(_, let target):
             return manager.getDisplayName(for: target) ?? "..."
+        case .cheatsheet:
+            return "Cheatsheet"
         }
     }
     
@@ -749,9 +937,10 @@ struct ShortcutRecordingView: View {
                 .padding(30)
                 .background(VisualEffectBlur().clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous)))
                 .shadow(radius: 20)
+                .frame(width: 400)
                 .transition(.scale.combined(with: .opacity))
             }
-            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: manager.recordingState != nil)
+            .animation(.default, value: manager.recordingState != nil)
         }
     }
 }
@@ -791,8 +980,9 @@ struct ShortcutTitle: View {
 struct ShortcutSubtitle: View {
     let target: ShortcutTarget
     @Environment(\.colorScheme) private var colorScheme
+    
     var body: some View {
-        let text = {
+        let fullText = {
             switch target {
             case .app(let bundleId): return bundleId
             case .url(let urlString): return urlString
@@ -801,186 +991,403 @@ struct ShortcutSubtitle: View {
             case .shortcut: return "macOS Shortcut"
             }
         }()
-        Text(text).font(.caption).foregroundColor(AppTheme.secondaryTextColor(for: colorScheme)).truncationMode(.middle).lineLimit(1)
+        
+        HoverableTruncatedText(
+            text: fullText,
+            font: .caption,
+            truncationMode: .middle,
+            lineLimit: 1
+        )
+        .foregroundColor(AppTheme.secondaryTextColor(for: colorScheme))
     }
 }
 
-// MARK: - Add Shortcut Sheets
+struct ListItemButtonStyle: ButtonStyle {
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var isHovering = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(isHovering || configuration.isPressed ? AppTheme.pillBackgroundColor(for: colorScheme) : Color.clear)
+                    .animation(.easeOut(duration: 0.1), value: isHovering)
+            )
+            .onHover { hovering in
+                self.isHovering = hovering
+            }
+    }
+}
+
 struct AddAppView: View {
     var onSave: (String) -> Void
-    @Environment(\.dismiss) var dismiss
+    @Binding var showingSheet: SheetType?
+    @Environment(\.colorScheme) private var colorScheme
+    
+    @State private var allApps: [AppInfo] = []
+    @State private var searchText = ""
+    @State private var isLoading = true
+    @FocusState private var isSearchFocused: Bool
+    
+    private var filteredApps: [AppInfo] {
+        if searchText.isEmpty { return allApps }
+        return allApps.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    }
     
     var body: some View {
-        VStack(spacing: 20) {
-            Text("Add Application Shortcut").font(.title2.weight(.bold))
-            Text("Select an application from your Applications folder.").multilineTextAlignment(.center).foregroundColor(.secondary)
+        VStack(spacing: 12) {
+            Text("Add Application Shortcut")
+                .font(.title2.weight(.bold))
+                .padding(.top)
+            
             HStack {
-                Button("Cancel", role: .cancel) { dismiss() }
-                Spacer()
-                Button("Select Application...") {
+                Image(systemName: "magnifyingglass").foregroundColor(.secondary)
+                TextField("Search Applications...", text: $searchText)
+                    .textFieldStyle(.plain)
+                    .focused($isSearchFocused)
+            }
+            .padding(.horizontal, 10).padding(.vertical, 8)
+            .background(AppTheme.pillBackgroundColor(for: colorScheme).opacity(0.5))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .padding(.horizontal)
+
+            if isLoading {
+                ProgressView().frame(maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 2) {
+                        ForEach(filteredApps) { app in
+                            Button(action: { onSave(app.id); showingSheet = nil }) {
+                                HStack(spacing: 12) {
+                                    Image(nsImage: app.icon)
+                                        .resizable().aspectRatio(contentMode: .fit)
+                                        .frame(width: 32, height: 32)
+                                    VStack(alignment: .leading) {
+                                        Text(app.name).fontWeight(.semibold)
+                                        Text(app.id).font(.caption).foregroundColor(.secondary).truncationMode(.middle)
+                                    }
+                                    Spacer()
+                                }
+                                .padding(8)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(ListItemButtonStyle())
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+            }
+            
+            Divider()
+            
+            HStack(spacing: 12) {
+                Button("Cancel", role: .cancel) { showingSheet = nil }.buttonStyle(PillButtonStyle())
+                Button("Browse...") {
                     let panel = NSOpenPanel()
                     panel.allowedContentTypes = [.application]
                     panel.directoryURL = URL(fileURLWithPath: "/Applications")
-                    panel.canChooseFiles = true
-                    panel.canChooseDirectories = false
                     if panel.runModal() == .OK, let url = panel.url, let bundleId = Bundle(url: url)?.bundleIdentifier {
-                        onSave(bundleId)
-                        dismiss()
-                    } else {
-                        // Handle error or cancellation
+                        onSave(bundleId); showingSheet = nil
                     }
+                }.buttonStyle(PillButtonStyle())
+            }
+            .padding([.horizontal, .bottom])
+        }
+        .frame(width: 400, height: 550)
+        .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { isSearchFocused = true }
+            if allApps.isEmpty {
+                AppScanner.getAllApps { apps in
+                    self.allApps = apps
+                    self.isLoading = false
                 }
             }
-        }.padding().frame(width: 350)
+        }
     }
 }
 
 struct AddURLView: View {
     var onSave: (String) -> Void
-    @Environment(\.dismiss) var dismiss
+    @Binding var showingSheet: SheetType?
+    @Environment(\.colorScheme) private var colorScheme
     @State private var urlString = "https://"
-    
+    @FocusState private var isFocused: Bool
+
     var body: some View {
         VStack(spacing: 20) {
-            Text("Add URL Shortcut").font(.title2.weight(.bold))
-            URLTextField(text: $urlString).frame(height: 22)
-            HStack {
-                Button("Cancel", role: .cancel) { dismiss() }; Spacer()
+            Text("Add URL Shortcut")
+                .font(.title2.weight(.bold))
+            
+            URLTextField(text: $urlString)
+                .focused($isFocused)
+                .frame(height: 22)
+            
+            HStack(spacing: 12) {
+                Button("Cancel") {
+                    showingSheet = nil
+                }
+                .buttonStyle(PillButtonStyle())
+                
+                Spacer()
+                
                 Button("Next") {
-                    if let url = URL(string: urlString), (url.scheme == "http" || url.scheme == "https") { onSave(urlString); dismiss() }
-                }.disabled(URL(string: urlString) == nil)
+                    onSave(urlString)
+                    showingSheet = nil
+                }
+                .buttonStyle(PillButtonStyle())
+                .disabled(!isValidURL())
             }
-        }.padding().frame(width: 350)
+        }
+        .padding()
+        .frame(width: 400)
+        .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                isFocused = true
+            }
+        }
+    }
+    
+    private func isValidURL() -> Bool {
+        guard let url = URL(string: urlString) else { return false }
+        return url.scheme == "http" || url.scheme == "https"
     }
 }
 
 struct EditURLView: View {
-    let assignmentID: UUID; let initialURL: String; var onSave: (UUID, String) -> Void
-    @Environment(\.dismiss) var dismiss
+    let assignmentID: UUID
+    let initialURL: String
+    var onSave: (UUID, String) -> Void
+    @Binding var isPresented: Bool
+    @Environment(\.colorScheme) private var colorScheme
     @State private var urlString: String
+    @FocusState private var isFocused: Bool
 
-    init(assignmentID: UUID, initialURL: String, onSave: @escaping (UUID, String) -> Void) {
-        self.assignmentID = assignmentID; self.initialURL = initialURL; self.onSave = onSave; _urlString = State(initialValue: initialURL)
+    init(assignmentID: UUID, initialURL: String, onSave: @escaping (UUID, String) -> Void, isPresented: Binding<Bool>) {
+        self.assignmentID = assignmentID
+        self.initialURL = initialURL
+        self.onSave = onSave
+        self._isPresented = isPresented
+        self._urlString = State(initialValue: initialURL)
     }
     
     var body: some View {
         VStack(spacing: 20) {
             Text("Edit URL Shortcut").font(.title2.weight(.bold))
-            URLTextField(text: $urlString).frame(height: 22)
-            HStack {
-                Button("Cancel", role: .cancel) { dismiss() }; Spacer()
+            URLTextField(text: $urlString)
+                .focused($isFocused)
+                .frame(height: 22)
+            HStack(spacing: 12) {
+                Button("Cancel", role: .cancel) { isPresented = false }.buttonStyle(PillButtonStyle())
+                Spacer()
                 Button("Save") {
-                    if let url = URL(string: urlString), (url.scheme == "http" || url.scheme == "https") { onSave(assignmentID, urlString); dismiss() }
-                }.disabled(URL(string: urlString) == nil)
-            }
-        }.padding().frame(width: 350)
-    }
-}
-
-struct AddFileView: View {
-    var onSave: (String) -> Void
-    @Environment(\.dismiss) var dismiss
-    
-    var body: some View {
-        VStack(spacing: 20) {
-            Text("Add File/Folder Shortcut").font(.title2.weight(.bold))
-            Text("Select a file or folder to create a shortcut.").multilineTextAlignment(.center).foregroundColor(.secondary)
-            HStack {
-                Button("Cancel", role: .cancel) { dismiss() }; Spacer()
-                Button("Select File/Folder...") {
-                    let panel = NSOpenPanel(); panel.canChooseFiles = true; panel.canChooseDirectories = true
-                    if panel.runModal() == .OK, let url = panel.url { onSave(url.path); dismiss() }
+                    if let url = URL(string: urlString), (url.scheme == "http" || url.scheme == "https") { onSave(assignmentID, urlString); isPresented = false }
                 }
+                .buttonStyle(PillButtonStyle())
+                .disabled(URL(string: urlString) == nil)
             }
-        }.padding().frame(width: 350)
-    }
-}
-
-struct EditFileView: View {
-    let assignmentID: UUID; var onSave: (UUID, String) -> Void
-    @Environment(\.dismiss) var dismiss
-    
-    var body: some View {
-        VStack(spacing: 20) {
-            Text("Change File/Folder Shortcut").font(.title2.weight(.bold))
-            Text("Select a new file or folder to update the shortcut.").multilineTextAlignment(.center).foregroundColor(.secondary)
-            HStack {
-                Button("Cancel", role: .cancel) { dismiss() }; Spacer()
-                Button("Select New File/Folder...") {
-                    let panel = NSOpenPanel(); panel.canChooseFiles = true; panel.canChooseDirectories = true
-                    if panel.runModal() == .OK, let url = panel.url { onSave(assignmentID, url.path); dismiss() }
-                }
-            }
-        }.padding().frame(width: 350)
+        }
+        .padding()
+        .frame(width: 400)
+        .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { isFocused = true }
+        }
     }
 }
 
 struct AddScriptView: View {
     var onSave: (String, Bool) -> Void
-    @Environment(\.dismiss) var dismiss
-    @State private var command = ""; @State private var runsInTerminal = false
-    
+    @Binding var showingSheet: SheetType?
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var command = ""
+    @State private var runsInTerminal = false
+    @FocusState private var isFocused: Bool
+
     var body: some View {
         VStack(spacing: 20) {
-            Text("Add Script Shortcut").font(.title2.weight(.bold))
-            Text("Enter a shell command to execute.").font(.caption).foregroundColor(.secondary)
-            TextEditor(text: $command).font(.system(.body, design: .monospaced)).frame(height: 100).border(Color.secondary.opacity(0.5), width: 1).clipShape(RoundedRectangle(cornerRadius: 6))
-            Toggle(isOn: $runsInTerminal) { Text("Show in a new Terminal window") }.toggleStyle(.checkbox)
-            HStack {
-                Button("Cancel", role: .cancel) { dismiss() }; Spacer()
-                Button("Next") { onSave(command, runsInTerminal); dismiss() }.disabled(command.isEmpty)
+            Text("Add Script Shortcut")
+                .font(.title2.weight(.bold))
+            
+            Text("Enter a shell command to execute.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: $command)
+                    .font(.system(.body, design: .monospaced))
+                    .scrollContentBackground(.hidden)
+                    .background(AppTheme.pillBackgroundColor(for: colorScheme).opacity(0.5))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .frame(height: 100)
+                    .focused($isFocused)
+                
+                if command.isEmpty {
+                    Text("echo 'Hello World'")
+                        .foregroundColor(.secondary)
+                        .font(.system(.body, design: .monospaced))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 8)
+                        .allowsHitTesting(false)
+                }
             }
-        }.padding().frame(width: 400)
+
+            Toggle("Show in a new Terminal window", isOn: $runsInTerminal)
+                .toggleStyle(.checkbox)
+            
+            HStack(spacing: 12) {
+                Button("Cancel") {
+                    showingSheet = nil
+                }
+                .buttonStyle(PillButtonStyle())
+                
+                Spacer()
+                
+                Button("Next") {
+                    onSave(command, runsInTerminal)
+                    showingSheet = nil
+                }
+                .buttonStyle(PillButtonStyle())
+                .disabled(command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding()
+        .frame(width: 400)
+        .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                isFocused = true
+            }
+        }
     }
 }
 
 struct EditScriptView: View {
-    let assignmentID: UUID; var onSave: (UUID, String, Bool) -> Void
-    @Environment(\.dismiss) var dismiss
-    @State private var command: String; @State private var runsInTerminal: Bool
+    let assignmentID: UUID
+    var onSave: (UUID, String, Bool) -> Void
+    @Binding var isPresented: Bool
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var command: String
+    @State private var runsInTerminal: Bool
+    @FocusState private var isFocused: Bool
 
-    init(assignmentID: UUID, initialCommand: String, initialRunsInTerminal: Bool, onSave: @escaping (UUID, String, Bool) -> Void) {
-        self.assignmentID = assignmentID; self.onSave = onSave
-        _command = State(initialValue: initialCommand); _runsInTerminal = State(initialValue: initialRunsInTerminal)
+    init(assignmentID: UUID, initialCommand: String, initialRunsInTerminal: Bool, onSave: @escaping (UUID, String, Bool) -> Void, isPresented: Binding<Bool>) {
+        self.assignmentID = assignmentID
+        self.onSave = onSave
+        self._isPresented = isPresented
+        _command = State(initialValue: initialCommand)
+        _runsInTerminal = State(initialValue: initialRunsInTerminal)
     }
     
     var body: some View {
         VStack(spacing: 20) {
             Text("Edit Script Shortcut").font(.title2.weight(.bold))
             Text("Enter a shell command to execute.").font(.caption).foregroundColor(.secondary)
-            TextEditor(text: $command).font(.system(.body, design: .monospaced)).frame(height: 100).border(Color.secondary.opacity(0.5), width: 1).clipShape(RoundedRectangle(cornerRadius: 6))
+            TextEditor(text: $command)
+                .font(.system(.body, design: .monospaced))
+                .scrollContentBackground(.hidden)
+                .background(AppTheme.pillBackgroundColor(for: colorScheme).opacity(0.5))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .frame(height: 100)
+                .focused($isFocused)
+
             Toggle(isOn: $runsInTerminal) { Text("Show in a new Terminal window") }.toggleStyle(.checkbox)
-            HStack {
-                Button("Cancel", role: .cancel) { dismiss() }; Spacer()
-                Button("Save") { onSave(assignmentID, command, runsInTerminal); dismiss() }.disabled(command.isEmpty)
+            HStack(spacing: 12) {
+                Button("Cancel", role: .cancel) { isPresented = false }.buttonStyle(PillButtonStyle())
+                Spacer()
+                Button("Save") { onSave(assignmentID, command, runsInTerminal); isPresented = false }
+                    .buttonStyle(PillButtonStyle())
+                    .disabled(command.isEmpty)
             }
-        }.padding().frame(width: 400)
+        }
+        .padding()
+        .frame(width: 400)
+        .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { isFocused = true }
+        }
     }
 }
 
 struct ShortcutPickerView: View {
     var onSave: (String) -> Void
-    @Environment(\.dismiss) var dismiss
-    @State private var allShortcuts: [String] = []; @State private var searchText = ""; @State private var isLoading = true
-
+    @Binding var showingSheet: SheetType?
+    @Environment(\.colorScheme) private var colorScheme
+    
+    @State private var allShortcuts: [String] = []
+    @State private var searchText = ""
+    @State private var isLoading = true
+    @FocusState private var isSearchFocused: Bool
+    
     private var filteredShortcuts: [String] {
         searchText.isEmpty ? allShortcuts : allShortcuts.filter { $0.localizedCaseInsensitiveContains(searchText) }
     }
     
     var body: some View {
-        VStack(spacing: 0) {
-            Text("Select a macOS Shortcut").font(.title2.weight(.bold)).padding()
-            if isLoading { ProgressView().progressViewStyle(.circular).scaleEffect(1.5).frame(maxHeight: .infinity) }
-            else if allShortcuts.isEmpty { Text("No Shortcuts Found").foregroundColor(.secondary).frame(maxHeight: .infinity) }
-            else { List(filteredShortcuts, id: \.self) { shortcutName in Button(action: { onSave(shortcutName); dismiss() }) { HStack { Text(shortcutName); Spacer(); Image(systemName: "chevron.right").foregroundColor(.secondary) }.padding(.vertical, 8).contentShape(Rectangle()) }.buttonStyle(.plain) }.listStyle(.plain).searchable(text: $searchText, prompt: "Search Shortcuts") }
+        VStack(spacing: 12) {
+            Text("Select a macOS Shortcut")
+                .font(.title2.weight(.bold))
+                .padding(.top)
+            
+            HStack {
+                Image(systemName: "magnifyingglass").foregroundColor(.secondary)
+                TextField("Search Shortcuts...", text: $searchText)
+                    .textFieldStyle(.plain)
+                    .focused($isSearchFocused)
+            }
+            .padding(.horizontal, 10).padding(.vertical, 8)
+            .background(AppTheme.pillBackgroundColor(for: colorScheme).opacity(0.5))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .padding(.horizontal)
+
+            if isLoading {
+                ProgressView().frame(maxHeight: .infinity)
+            } else if allShortcuts.isEmpty {
+                Text("No Shortcuts Found").foregroundColor(.secondary).frame(maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 2) {
+                        ForEach(filteredShortcuts, id: \.self) { shortcutName in
+                            Button(action: { onSave(shortcutName); showingSheet = nil }) {
+                                HStack {
+                                    Text(shortcutName)
+                                    Spacer()
+                                    Image(systemName: "chevron.right").foregroundColor(.secondary)
+                                }
+                                .padding(12)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(ListItemButtonStyle())
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+            }
+            
+            Divider()
+            
+            HStack {
+                Spacer()
+                Button("Cancel", role: .cancel) { showingSheet = nil }.buttonStyle(PillButtonStyle())
+                Spacer()
+            }
+            .padding([.horizontal, .bottom])
         }
         .frame(width: 400, height: 500)
-        .onAppear { ShortcutRunner.getAllShortcutNames { names in self.allShortcuts = names.sorted(); self.isLoading = false } }
+        .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { isSearchFocused = true }
+            if allShortcuts.isEmpty {
+                ShortcutRunner.getAllShortcutNames { names in
+                    self.allShortcuts = names.sorted()
+                    self.isLoading = false
+                }
+            }
+        }
     }
 }
 
-
-// MARK: - Footer View
 struct FooterView: View {
     @EnvironmentObject var settings: SettingsManager
     @EnvironmentObject var manager: AppHotKeyManager
@@ -996,16 +1403,7 @@ struct FooterView: View {
         VStack(spacing: 10) {
             HStack {
                 Menu {
-                    Button("Add App") {
-                        let panel = NSOpenPanel()
-                        panel.allowedContentTypes = [.application]
-                        panel.directoryURL = URL(fileURLWithPath: "/Applications")
-                        panel.canChooseFiles = true
-                        panel.canChooseDirectories = false
-                        if panel.runModal() == .OK, let url = panel.url, let bundleId = Bundle(url: url)?.bundleIdentifier {
-                            manager.startRecording(for: .create(target: .app(bundleId: bundleId)))
-                        }
-                    }
+                    Button("Add App") { sheetType = .addApp }
                     Button("Add macOS Shortcut") { sheetType = .addShortcut }
                     Button("Add URL") { sheetType = .addURL }
                     Button("Add File/Folder") {

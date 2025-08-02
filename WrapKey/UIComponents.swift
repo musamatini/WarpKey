@@ -1,51 +1,100 @@
-//UIComponenets.swift
+// UIComponents.swift
+
 import SwiftUI
 import AppKit
 
-// MARK: - Window Accessor
-struct WindowAccessor: NSViewRepresentable {
-    var expectedContentSize: CGSize? = nil
-    
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        DispatchQueue.main.async {
-            guard let window = view.window else { return }
-            
-            window.alphaValue = 0.0
-            window.isMovableByWindowBackground = true
-            window.backgroundColor = .clear
-            window.hasShadow = false
-            window.level = .normal
-            
-            window.styleMask.insert(.borderless)
-            window.styleMask.remove(.titled)
-            
-            window.titleVisibility = .hidden
-            window.titlebarAppearsTransparent = true
-
-            if let screenFrame = NSScreen.main?.visibleFrame {
-                let finalWindowSize = expectedContentSize ?? window.frame.size
-                window.setContentSize(finalWindowSize)
-                let newX = screenFrame.midX - (finalWindowSize.width / 2)
-                let newY = screenFrame.midY - (finalWindowSize.height / 2)
-                window.setFrameOrigin(NSPoint(x: newX, y: newY))
-            }
-            
-            NSApp.activate(ignoringOtherApps: true)
-            NSAnimationContext.runAnimationGroup({ context in
-                context.duration = 0.2
-                window.animator().alphaValue = 1.0
-            })
-        }
-        return view
-    }
-    func updateNSView(_ nsView: NSView, context: Context) {}
+struct SizePreferenceKey: PreferenceKey {
+    static var defaultValue: CGSize = .zero
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {}
 }
 
-// MARK: - Visual Effects
+extension View {
+    func readSize(onChange: @escaping (CGSize) -> Void) -> some View {
+        background(
+            GeometryReader { geometryProxy in
+                Color.clear
+                    .preference(key: SizePreferenceKey.self, value: geometryProxy.size)
+            }
+        )
+        .onPreferenceChange(SizePreferenceKey.self, perform: onChange)
+    }
+    
+    func customSheet<SheetContent: View>(
+        isPresented: Binding<Bool>,
+        animated: Bool = true,
+        @ViewBuilder content: @escaping () -> SheetContent
+    ) -> some View {
+        self.overlay(
+            ZStack {
+                if isPresented.wrappedValue {
+                    Color.black.opacity(0.6)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            isPresented.wrappedValue = false
+                        }
+                        .transition(.opacity)
+
+                    SheetContainer {
+                        content()
+                    }
+                    .transition(.scale.combined(with: .opacity))
+                }
+            }
+            .animation(
+                animated ? .spring(response: 0.4, dampingFraction: 0.8) : nil,
+                value: isPresented.wrappedValue
+            )
+        )
+    }
+}
+
+struct HoverableTruncatedText: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let text: String
+    let font: Font
+    let truncationMode: Text.TruncationMode
+    let lineLimit: Int
+
+    @State private var idealWidth: CGFloat = 0
+    @State private var actualWidth: CGFloat = 0
+    @State private var showPopover = false
+
+    private var isTruncated: Bool {
+        idealWidth > actualWidth + 1
+    }
+
+    var body: some View {
+        Text(text)
+            .font(font)
+            .lineLimit(lineLimit)
+            .truncationMode(truncationMode)
+            .readSize { size in actualWidth = size.width }
+            .background(
+                Text(text)
+                    .font(font)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .readSize { size in idealWidth = size.width }
+                    .hidden()
+            )
+            .onHover { hovering in
+                if isTruncated {
+                    showPopover = hovering
+                }
+            }
+            .popover(isPresented: $showPopover, arrowEdge: .bottom) {
+                Text(text)
+                    .font(.callout)
+                    .padding(12)
+                    .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
+                    .background(BlurredBackgroundView())
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
+            }
+    }
+}
+
+
 struct VisualEffectBlur: NSViewRepresentable {
     @Environment(\.colorScheme) private var colorScheme
-
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
         view.blendingMode = .withinWindow
@@ -53,7 +102,6 @@ struct VisualEffectBlur: NSViewRepresentable {
         updateNSView(view, context: context)
         return view
     }
-    
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
         nsView.material = colorScheme == .dark ? .popover : .sheet
     }
@@ -62,18 +110,16 @@ struct VisualEffectBlur: NSViewRepresentable {
 struct BlurredBackgroundView: View {
     var body: some View {
         VisualEffectBlur()
-            .overlay(Color.primary.opacity(0.01))
+            .overlay { Color.primary.opacity(0.01) }
     }
 }
 
-// MARK: - General UI Components
 struct TitleBarButton: View {
     @Environment(\.colorScheme) private var colorScheme
     let systemName: String
     let action: () -> Void
     var tintColor: Color?
     var yOffset: CGFloat = 0
-    
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
@@ -88,18 +134,14 @@ struct TitleBarButton: View {
     }
 }
 
-// MARK: - Titles
 struct CustomTitleBar: View {
     @EnvironmentObject var settings: SettingsManager
     @Environment(\.colorScheme) private var colorScheme
-
     let title: String
     var showBackButton: Bool = false
     var onBack: (() -> Void)? = nil
     var onClose: () -> Void
-
     private let githubURL = URL(string: "https://github.com/musamatini/WrapKey")!
-
     var body: some View {
         HStack(alignment: .center) {
             if showBackButton {
@@ -117,13 +159,10 @@ struct CustomTitleBar: View {
                             .resizable().aspectRatio(contentMode: .fit)
                             .frame(width: 28, height: 28).clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                     }
-                    
-                    Link(destination: githubURL) {
-                        Text(title).font(.headline).fontWeight(.semibold)
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.leading, 4)
-                    
+                    Link(destination: githubURL) { Text(title).font(.headline).fontWeight(.semibold) }
+                        .buttonStyle(.plain)
+                        .padding(.leading, 4)
+                        .focusable(false)
                     ProfileDropdownButton()
                         .padding(.leading, 8)
                     .menuStyle(.borderlessButton)
@@ -132,15 +171,27 @@ struct CustomTitleBar: View {
                     .padding(.leading, 8)
                 }
             }
-            
             Spacer()
-            
             TitleBarButton(systemName: "xmark", action: onClose, tintColor: AppTheme.secondaryTextColor(for: colorScheme), yOffset: -2)
         }
         .padding(.horizontal)
         .frame(height: 50)
     }
 }
+
+
+struct HelpSectionBackground: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        if colorScheme == .dark {
+            VisualEffectBlur()
+        } else {
+            AppTheme.cardBackgroundColor(for: colorScheme)
+        }
+    }
+}
+
 
 struct HelpSection<Content: View>: View {
     @Environment(\.colorScheme) private var colorScheme
@@ -159,17 +210,14 @@ struct HelpSection<Content: View>: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(20)
-        .background(
-            ZStack {
-                if colorScheme == .light {
-                    AppTheme.cardBackgroundColor(for: colorScheme)
-                } else {
-                    VisualEffectBlur()
-                }
-            }
-        )
+        .background {
+            HelpSectionBackground()
+        }
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous).stroke(Color.primary.opacity(colorScheme == .dark ? 0.3 : 0.1), lineWidth: 0.7))
+        .overlay {
+            RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous)
+                .stroke(Color.primary.opacity(colorScheme == .dark ? 0.3 : 0.1), lineWidth: 0.7)
+        }
     }
 }
 
@@ -180,13 +228,11 @@ struct CustomSegmentedPicker<T: Hashable & CaseIterable & RawRepresentable>: Vie
     private var namespace: Namespace.ID
     private let containerPadding: CGFloat = 4
     private let cornerRadius: CGFloat = AppTheme.cornerRadius
-
     init(title: String, selection: Binding<T>, in namespace: Namespace.ID) {
         self.title = title
         self._selection = selection
         self.namespace = namespace
     }
-    
     var body: some View {
         HStack(spacing: 0) {
             ForEach(Array(T.allCases), id: \.self) { option in
@@ -196,7 +242,7 @@ struct CustomSegmentedPicker<T: Hashable & CaseIterable & RawRepresentable>: Vie
                     .padding(.vertical, 6)
                     .frame(maxWidth: .infinity)
                     .foregroundColor(selection == option ? AppTheme.primaryTextColor(for: colorScheme) : AppTheme.secondaryTextColor(for: colorScheme))
-                    .background(
+                    .background {
                         ZStack {
                             if selection == option {
                                 RoundedRectangle(cornerRadius: cornerRadius - containerPadding, style: .continuous)
@@ -204,7 +250,7 @@ struct CustomSegmentedPicker<T: Hashable & CaseIterable & RawRepresentable>: Vie
                                     .matchedGeometryEffect(id: "picker-highlight", in: namespace)
                             }
                         }
-                    )
+                    }
                     .contentShape(Rectangle())
                     .onTapGesture {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8, blendDuration: 0.5)) {
@@ -214,7 +260,7 @@ struct CustomSegmentedPicker<T: Hashable & CaseIterable & RawRepresentable>: Vie
             }
         }
         .padding(containerPadding)
-        .background(AppTheme.pickerBackgroundColor(for: colorScheme))
+        .background { AppTheme.pickerBackgroundColor(for: colorScheme) }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 }
@@ -224,35 +270,31 @@ struct PillCard<Content: View>: View {
     let content: Content
     let backgroundColor: Color?
     let cornerRadius: CGFloat
-
     init(@ViewBuilder content: () -> Content, backgroundColor: Color? = nil, cornerRadius: CGFloat) {
         self.content = content()
         self.backgroundColor = backgroundColor
         self.cornerRadius = cornerRadius
     }
-
     var body: some View {
         content
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
-            .background(backgroundColor ?? AppTheme.pillBackgroundColor(for: colorScheme))
+            .background { backgroundColor ?? AppTheme.pillBackgroundColor(for: colorScheme) }
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 }
 
 struct CustomSwitchToggleStyle: ToggleStyle {
     @Environment(\.colorScheme) private var colorScheme
-
     func makeBody(configuration: Configuration) -> some View {
         HStack {
             configuration.label
             Spacer()
             ZStack {
-                Capsule()
+                RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous)
                     .frame(width: 44, height: 26)
                     .foregroundColor(configuration.isOn ? AppTheme.accentColor1(for: colorScheme) : AppTheme.pillBackgroundColor(for: colorScheme))
-                
-                Circle()
+                RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous)
                     .frame(width: 22, height: 22)
                     .foregroundColor(.white)
                     .shadow(radius: 1, x: 0, y: 1)
@@ -270,21 +312,19 @@ struct CustomSwitchToggleStyle: ToggleStyle {
 
 struct PillButtonStyle: ButtonStyle {
     @Environment(\.colorScheme) private var colorScheme
-
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .fontWeight(.semibold)
             .padding(.vertical, 8)
             .padding(.horizontal, 12)
             .frame(maxWidth: .infinity)
-            .background(AppTheme.pillBackgroundColor(for: colorScheme))
+            .background { AppTheme.pillBackgroundColor(for: colorScheme) }
             .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
             .opacity(configuration.isPressed ? 0.8 : 1.0)
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
     }
 }
 
-// MARK: - Custom TextField
 class CursorAtEndTextField: NSTextField {
     override func becomeFirstResponder() -> Bool {
         let success = super.becomeFirstResponder()
@@ -297,7 +337,6 @@ class CursorAtEndTextField: NSTextField {
 
 struct URLTextField: NSViewRepresentable {
     @Binding var text: String
-
     class Coordinator: NSObject, NSTextFieldDelegate {
         var parent: URLTextField
         init(_ parent: URLTextField) { self.parent = parent }
@@ -306,9 +345,7 @@ struct URLTextField: NSViewRepresentable {
             parent.text = textField.stringValue
         }
     }
-
     func makeCoordinator() -> Coordinator { Coordinator(self) }
-
     func makeNSView(context: Context) -> NSTextField {
         let textField = CursorAtEndTextField()
         textField.delegate = context.coordinator
@@ -320,7 +357,6 @@ struct URLTextField: NSViewRepresentable {
         textField.font = .systemFont(ofSize: 13)
         return textField
     }
-
     func updateNSView(_ nsView: NSTextField, context: Context) {
         if nsView.stringValue != text {
             nsView.stringValue = text
@@ -333,11 +369,8 @@ struct ProfileDropdownButton: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var showMenu = false
     @State private var buttonFrame: CGRect = .zero
-
     var body: some View {
-        Button(action: {
-            showMenu.toggle()
-        }) {
+        Button(action: { showMenu.toggle() }) {
             HStack(spacing: 6) {
                 Text(settings.currentProfile.wrappedValue.name)
                     .lineLimit(1)
@@ -348,13 +381,13 @@ struct ProfileDropdownButton: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(AppTheme.pillBackgroundColor(for: colorScheme))
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .background(GeometryReader { geo in
-                Color.clear.onAppear {
-                    buttonFrame = geo.frame(in: .global)
+            .background { AppTheme.pillBackgroundColor(for: colorScheme) }
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
+            .background {
+                GeometryReader { geo in
+                    Color.clear.onAppear { buttonFrame = geo.frame(in: .global) }
                 }
-            })
+            }
         }
         .buttonStyle(.plain)
         .popover(isPresented: $showMenu, arrowEdge: .bottom) {
@@ -380,8 +413,8 @@ struct ProfileDropdownButton: View {
             }
             .frame(width: max(buttonFrame.width, 160))
             .padding(4)
-            .background(AppTheme.cardBackgroundColor(for: colorScheme))
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .background { AppTheme.cardBackgroundColor(for: colorScheme) }
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
         }
     }
 }

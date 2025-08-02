@@ -1,4 +1,4 @@
-//WrapKeyApp.swift
+// WrapKeyApp.swift
 import SwiftUI
 import AppKit
 import Sparkle
@@ -26,7 +26,7 @@ final class UpdaterViewModel: ObservableObject {
             }
             .store(in: &cancellables)
     }
-    
+
     func checkForUpdates() {
         updater.checkForUpdates()
     }
@@ -35,7 +35,7 @@ final class UpdaterViewModel: ObservableObject {
 // MARK: - Menu Item View
 struct CheckForUpdatesView: View {
     @ObservedObject var updaterViewModel: UpdaterViewModel
-    
+
     var body: some View {
         Button("Check for Updates…") {
             updaterViewModel.checkForUpdates()
@@ -44,16 +44,30 @@ struct CheckForUpdatesView: View {
     }
 }
 
-// MARK: - Helper View for Environment-based Injection
-struct AppDelegateInjector: View {
+
+
+// MARK: - Root View to Manage Color Scheme
+struct RootView: View {
+    @ObservedObject var settings: SettingsManager
     let appDelegate: AppDelegate
-    @Environment(\.openWindow) private var openWindow
+    @StateObject private var launchManager = LaunchAtLoginManager()
+
+    private var preferredColorScheme: ColorScheme? {
+        switch settings.colorScheme {
+        case .light: return .light
+        case .dark: return .dark
+        case .auto: return settings.systemColorScheme
+        }
+    }
 
     var body: some View {
-        Color.clear.frame(width: 0, height: 0)
-            .onAppear {
-                appDelegate.openWindowAction = openWindow
-            }
+        MenuView(
+            manager: appDelegate.hotKeyManager,
+            launchManager: launchManager,
+            updaterViewModel: appDelegate.updaterViewModel
+        )
+        .environmentObject(settings)
+        .preferredColorScheme(preferredColorScheme)
     }
 }
 
@@ -62,49 +76,11 @@ struct AppDelegateInjector: View {
 @main
 struct WrapKeyApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    
-    @StateObject private var settingsManager: SettingsManager
-    @StateObject private var hotKeyManager: AppHotKeyManager
-    @StateObject private var launchManager = LaunchAtLoginManager()
 
-    init() {
-        let settings = SettingsManager()
-        let hotKey = AppHotKeyManager(settings: settings)
-        
-        _settingsManager = StateObject(wrappedValue: settings)
-        _hotKeyManager = StateObject(wrappedValue: hotKey)
-        
-        appDelegate.settings = settings
-        appDelegate.hotKeyManager = hotKey
-    }
-
-    private var preferredColorScheme: ColorScheme? {
-        switch settingsManager.colorScheme {
-        case .light: return .light
-        case .dark: return .dark
-        case .auto: return settingsManager.systemColorScheme
-        }
-    }
-    
     var body: some Scene {
-        Window("WrapKey", id: "main-menu") {
-            MenuView(
-                manager: hotKeyManager,
-                launchManager: launchManager,
-                updaterViewModel: appDelegate.updaterViewModel
-            )
-            .environmentObject(settingsManager)
-            .background(WindowAccessor())
-            .preferredColorScheme(preferredColorScheme)
-            .background(AppDelegateInjector(appDelegate: appDelegate))
-        }
-        .windowResizability(.contentSize)
-        .defaultPosition(.center)
-        .commands {
-            CommandGroup(after: .appInfo) {
-                CheckForUpdatesView(updaterViewModel: appDelegate.updaterViewModel)
-            }
-            CommandGroup(replacing: .windowList) {}
+
+        Settings {
+            EmptyView()
         }
     }
 }

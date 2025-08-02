@@ -15,6 +15,70 @@
               <li>
                 <ul>
                   <li>
+                    <strong>Many Many bug fixses:</strong> fixing the app freezes sometimes esspically when using cycle. many many more but i cant remember, i should start taking notes maan...
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <ul>
+                  <li>
+                    <strong>Added Features:</strong> Cheatsheet: adjust its shortcut in settings! Removed the trigger and secondary keys functionality, now users can add whatever shortcuts they like to whichever apps they like! but they should assign the app shortcuts via the menu instead of clicking the assigning shortcuts.
+                  </li>
+                </ul>
+              </li>
+            </ul>
+        ]]>
+      </description>
+      <enclosure
+        url="https://github.com/musamatini/WrapKey/releases/download/v1.0.5/WrapKey-Universal-Stable-v1.0.5.zip"
+        sparkle:version="6"
+        sparkle:shortVersionString="1.0.5"
+        length="3155318"
+        type="application/octet-stream"
+        sparkle:edSignature="Vk/5+5ed6AKKc2UeX0l164wuiloav+ySwT+8HU2tmGIJvD5oXM6qecumrGbFIamonTAEOAnzXUbm3ayS7MQVAQ==" />
+    </item>
+    <item>
+      <title>Version 1.0.4</title>
+      <pubDate>Thu, 31 Jul 2024 11:30:00 +0300</pubDate>
+      <description>
+        <![CDATA[
+            <h3>What's New in WrapKey</h3>
+            <ul>
+              <li>
+                <ul>
+                  <li>
+                    <strong>App Assignment Fixed:</strong> Resolved a critical bug where the hotkey for assigning new apps (combining <code>Secondary Keys</code> and <code>App Triggers</code>) was not being recognized.
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <ul>
+                  <li>
+                    <strong>Improved Collision Logic:</strong> The app now correctly prevents a key from being used in both the <code>App Triggers</code> and <code>Secondary Keys</code> groups simultaneously.
+                  </li>
+                </ul>
+              </li>
+            </ul>
+        ]]>
+      </description>
+      <enclosure
+        url="https://github.com/musamatini/WrapKey/releases/download/v1.0.4/WrapKey-Universal-Stable-v1.0.4.zip"
+        sparkle:version="5"
+        sparkle:shortVersionString="1.0.4"
+        length="3150868"
+        type="application/octet-stream"
+        sparkle:edSignature="2emxKi3UWFmbmZwiOfYAWLO/WaQMNpazam7Xl2aUKk9R4jsHhOSpsdXVekCbdF8N3sf9PIINj90wQOzpVqDbCA==" />
+    </item>
+    <item>
+      <title>Version 1.0.4</title>
+      <pubDate>Thu, 31 Jul 2024 11:30:00 +0300</pubDate>
+      <description>
+        <![CDATA[
+            <h3>What's New in WrapKey</h3>
+            <ul>
+              <li>
+                <ul>
+                  <li>
                     <strong>App Assignment Fixed:</strong> Resolved a critical bug where the hotkey for assigning new apps (combining <code>Secondary Keys</code> and <code>App Triggers</code>) was not being recognized.
                   </li>
                 </ul>
