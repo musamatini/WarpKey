@@ -1,4 +1,3 @@
-//LaunchAtLoginManager.swift
 import Foundation
 import ServiceManagement
 import Combine
@@ -8,23 +7,24 @@ class LaunchAtLoginManager: ObservableObject {
     private var cancellable: AnyCancellable?
     
     init() {
-        cancellable = $isEnabled.sink { [weak self] desiredState in
-            guard let self = self else { return }
-            let currentState = (SMAppService.mainApp.status == .enabled)
-            if desiredState != currentState {
+        cancellable = $isEnabled
+            .removeDuplicates()
+            .sink { [weak self] desiredState in
+                guard let self = self else { return }
+                
                 self.toggle(enabled: desiredState)
-            }
         }
     }
 
     private func toggle(enabled: Bool) {
         do {
             if enabled {
-                if SMAppService.mainApp.status == .notFound {
-                    try SMAppService.mainApp.register()
-                }
+                try SMAppService.mainApp.register()
             } else {
                 try SMAppService.mainApp.unregister()
+            }
+            DispatchQueue.main.async {
+                 self.isEnabled = SMAppService.mainApp.status == .enabled
             }
         } catch {
             print("[LaunchAtLogin] Error: \(error.localizedDescription)")
