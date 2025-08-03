@@ -187,14 +187,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         NSApp.setActivationPolicy(.accessory)
     }
         
+
+
     @objc private func handleShortcutActivation() {
-        guard let button = statusItem?.button, button.layer?.animation(forKey: "bounce") == nil else { return }
-        
-        let animation = CAKeyframeAnimation(keyPath: "transform.scale")
-        animation.values = [1.0, 1.25, 0.85, 1.1, 0.95, 1.0]
-        animation.duration = 0.4
-        animation.timingFunctions = (0..<5).map { _ in CAMediaTimingFunction(name: .easeInEaseOut) }
-        button.layer?.add(animation, forKey: "bounce")
+        guard let button = statusItem?.button else { return }
+
+        let filter = CIFilter(name: "CIColorInvert")
+        button.layer?.filters = [filter]
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            button.layer?.filters = nil
+        }
     }
 
     @objc private func handleAppDidBecomeActive() {

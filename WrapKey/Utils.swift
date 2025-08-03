@@ -1,11 +1,10 @@
-// utils.swift
-
 import AppKit
 import Foundation
 import UserNotifications
 import CoreGraphics
 import Carbon.HIToolbox
 
+// MARK: - Notifications
 extension Notification.Name {
     static let openMainWindow = Notification.Name("openMainWindow")
     static let goToHelpPageInMainWindow = Notification.Name("goToHelpPageInMainWindow")
@@ -15,6 +14,7 @@ extension Notification.Name {
     static let hideCheatsheet = Notification.Name("hideCheatsheet")
 }
 
+// MARK: - Accessibility
 struct AccessibilityManager {
     static func checkPermissions() -> Bool {
         AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false] as CFDictionary)
@@ -25,6 +25,7 @@ struct AccessibilityManager {
     }
 }
 
+// MARK: - Notification Manager
 class NotificationManager {
     static let shared = NotificationManager()
     private let center = UNUserNotificationCenter.current()
@@ -85,6 +86,7 @@ class NotificationManager {
     }
 }
 
+// MARK: - Shortcut Runner
 struct ShortcutRunner {
     static func getAllShortcutNames(completion: @escaping ([String]) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
@@ -116,61 +118,105 @@ struct ShortcutRunner {
     }
 }
 
+// MARK: - Keyboard Layout
 struct KeyboardLayout {
-    private static let specialKeyNames: [CGKeyCode: String] = [
-        // Standard Function Keys
-        0x7A: "F1", 0x78: "F2", 0x63: "F3", 0x76: "F4", 0x60: "F5", 0x61: "F6",
-        0x62: "F7",
-        0x64: "F8",
-        0x65: "F9",
-        0x6D: "F10", 0x67: "F11", 0x6F: "F12",
-        0x69: "F13", 0x6B: "F14", 0x71: "F15", 0x6A: "F16", 0x40: "F17",
-        0x4F: "F18", 0x50: "F19",
-        
-        // Editing & Navigation
-        0x24: "Return", 0x30: "Tab", 0x31: "Space", 0x33: "Delete",
-        0x75: "Fwd Del", // Forward Delete
-        0x35: "Esc", 0x39: "Caps Lock",
-        0x72: "Help", 0x73: "Home", 0x74: "Page Up", 0x77: "End",
-        0x79: "Page Down",
-        
-        // Arrow Keys
-        0x7B: "←", 0x7C: "→", 0x7D: "↓", 0x7E: "↑",
-        
-        // Media & System Keys
-        0x4A: "Mute",
-        0x48: "Volume Up",
-        0x49: "Volume Down"
+    
+    private static let systemKeyNames: [CGKeyCode: String] = [
+        2: "Brightness Up",
+        3: "Brightness Down",
+        7: "Mute",
+        16: "Play/Pause",
+        19: "Next Track",
+        20: "Previous Track",
+        160: "Mission Control",
+        176: "Dictation/Siri",
+        177: "Spotlight",
+        178: "Focus"
     ]
     
-    static func character(for keyCode: CGKeyCode) -> String? {
-        if let specialName = specialKeyNames[keyCode] {
-            return specialName
+    private static let specialKeyNames: [CGKeyCode: String] = [
+        36: "Return",
+        48: "Tab",
+        49: "Space",
+        51: "Delete",
+        53: "Esc",
+        57: "Caps Lock",
+        71: "Help",
+        96: "F5",
+        97: "F6",
+        98: "F7",
+        99: "F3",
+        100: "F8",
+        101: "F9",
+        103: "F11",
+        109: "F10",
+        111: "F12",
+        115: "Home",
+        116: "Page Up",
+        117: "Fwd Del",
+        118: "F4",
+        119: "End",
+        120: "F2",
+        121: "Page Down",
+        122: "F1",
+        123: "←",
+        124: "→",
+        125: "↓",
+        126: "↑",
+        50: "`",
+        39: "'",
+        300: "Caps Lock"
+    ]
+    
+    static func character(for keyCode: CGKeyCode, isSystemEvent: Bool) -> String? {
+        if keyCode == 300 {
+            return "Caps Lock"
         }
         
-        guard let source = TISCopyCurrentKeyboardInputSource()?.takeUnretainedValue(),
-              let layoutDataPointer = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData) else {
+        if isSystemEvent {
+            return systemKeyNames[keyCode]
+        } else {
+            if let specialName = specialKeyNames[keyCode] {
+                return specialName
+            }
+            if let char = getCharFromKeyCode(keyCode) {
+                return char
+            }
+        }
+        return nil
+    }
+    
+    private static func getCharFromKeyCode(_ keyCode: CGKeyCode) -> String? {
+        if keyCode == 300 {
+            return "Caps Lock"
+        }
+        
+        guard let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() else { return nil }
+        guard let layoutData = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData) else { return nil }
+        let data = unsafeBitCast(layoutData, to: CFData.self) as Data
+        
+        return data.withUnsafeBytes { (pointer: UnsafeRawBufferPointer) -> String? in
+            guard let layout = pointer.baseAddress?.assumingMemoryBound(to: UCKeyboardLayout.self) else {
+                return nil
+            }
+            var deadKeyState: UInt32 = 0
+            var actualChars = 0
+            var unicodeChars = [UniChar](repeating: 0, count: 4)
+            let status = UCKeyTranslate(layout, UInt16(keyCode), UInt16(kUCKeyActionDown), 0, UInt32(LMGetKbdType()), 0, &deadKeyState, unicodeChars.count, &actualChars, &unicodeChars)
+            if status == noErr && actualChars > 0 {
+                let charString = String(utf16CodeUnits: &unicodeChars, count: actualChars)
+                if charString.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    return nil
+                }
+                return charString.uppercased()
+            }
             return nil
         }
-        
-        let layoutData = unsafeBitCast(layoutDataPointer, to: CFData.self) as Data
-        let layout = layoutData.withUnsafeBytes { $0.bindMemory(to: UCKeyboardLayout.self).baseAddress! }
-
-        var deadKeyState: UInt32 = 0
-        let maxChars = 4
-        var actualChars = 0
-        var unicodeChars = [UniChar](repeating: 0, count: maxChars)
-        
-        let status = UCKeyTranslate(layout, keyCode, UInt16(kUCKeyActionDown), 0, UInt32(LMGetKbdType()), 0, &deadKeyState, maxChars, &actualChars, &unicodeChars)
-        
-        if status == noErr && actualChars > 0 {
-            return String(utf16CodeUnits: unicodeChars, count: actualChars).uppercased()
-        }
-        
-        return nil
     }
 }
 
+
+// MARK: - Appearance
 extension NSAppearance {
     var isDark: Bool {
         if bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {

@@ -134,6 +134,8 @@ func setupAppearanceMonitoring() {
         }
 }
 
+// In SettingsManager.swift
+
 private static func loadAndMigrateProfiles(from key: String) -> [Profile] {
     if let data = UserDefaults.standard.data(forKey: key),
        let decodedProfiles = try? JSONDecoder().decode([Profile].self, from: data),
@@ -159,11 +161,13 @@ private static func loadAndMigrateProfiles(from key: String) -> [Profile] {
                     let modifiersToApply = oldProfile.triggerModifiers[category] ?? []
                     
                     newShortcut.append(contentsOf: modifiersToApply.map { oldKey in
-                        return ShortcutKey.from(keyCode: oldKey.keyCode, isModifier: oldKey.isTrueModifier)
+                        // Assume old modifiers were not system events
+                        return ShortcutKey.from(keyCode: oldKey.keyCode, isModifier: oldKey.isTrueModifier, isSystemEvent: false)
                     })
                     
                     if let kc = oldAssignment.keyCode {
-                        newShortcut.append(ShortcutKey.from(keyCode: kc, isModifier: false))
+                        // THIS IS THE FIXED LINE
+                        newShortcut.append(ShortcutKey.from(keyCode: kc, isModifier: false, isSystemEvent: false))
                     }
                     
                     return Assignment(id: oldAssignment.id, shortcut: newShortcut, configuration: oldAssignment.configuration)

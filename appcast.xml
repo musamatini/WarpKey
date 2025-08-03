@@ -6,7 +6,34 @@
     <description>Most recent changes with links to updates.</description>
     <language>en</language>
     <item>
-      <title>Version 1.0.4</title>
+      <title>Version 1.0.6</title>
+      <pubDate>Thu, 2 Aug 2024 18:50:00 +0300</pubDate>
+      <description>
+        <![CDATA[
+            <h3>What's New in WrapKey</h3>
+            <ul>
+                <li>
+                    <strong>Fixed - Launch at Login:</strong> Resolved an issue that prevented the "Launch at Login" setting from working correctly.
+                </li>
+                <li>
+                    <strong>Fixed - Brightness Keys:</strong> Addressed a bug where the functions row keys were not functioning.
+                </li>
+                <li>
+                    <strong>Fixed - Caps Lock:</strong> Corrected an issue that caused the Caps Lock key to not work proberly.
+                </li>
+            </ul>
+        ]]>
+      </description>
+      <enclosure
+        url="https://github.com/musamatini/WrapKey/releases/download/v1.0.6/WrapKey-Universal-Stable-v1.0.6.zip"
+        sparkle:version="7"
+        sparkle:shortVersionString="1.0.6"
+        length="3165345"
+        type="application/octet-stream"
+        sparkle:edSignature="DBGF+/VFg77C4pP3nopBTYH8IAUpO+LYqIb3bV5//BMwiAdcPHE6CSNP9BZ2DRqjvitoAIQBSNwWAfGonHwpCA==" />
+    </item>
+    <item>
+      <title>Version 1.0.5</title>
       <pubDate>Thu, 31 Jul 2024 11:30:00 +0300</pubDate>
       <description>
         <![CDATA[
