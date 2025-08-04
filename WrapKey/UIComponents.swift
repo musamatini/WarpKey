@@ -1,8 +1,8 @@
 // UIComponents.swift
-
 import SwiftUI
 import AppKit
 
+// MARK: - Preference Keys & Extensions
 struct SizePreferenceKey: PreferenceKey {
     static var defaultValue: CGSize = .zero
     static func reduce(value: inout CGSize, nextValue: () -> CGSize) {}
@@ -48,7 +48,9 @@ extension View {
     }
 }
 
+// MARK: - Custom Views
 struct HoverableTruncatedText: View {
+    @EnvironmentObject var settings: SettingsManager
     @Environment(\.colorScheme) private var colorScheme
     let text: String
     let font: Font
@@ -114,80 +116,15 @@ struct BlurredBackgroundView: View {
     }
 }
 
-struct TitleBarButton: View {
-    @Environment(\.colorScheme) private var colorScheme
-    let systemName: String
-    let action: () -> Void
-    var tintColor: Color?
-    var yOffset: CGFloat = 0
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: 18, weight: .medium))
-                .frame(width: 36, height: 36)
-                .contentShape(Rectangle())
-                .foregroundColor(tintColor ?? AppTheme.secondaryTextColor(for: colorScheme))
-        }
-        .buttonStyle(.plain)
-        .offset(y: yOffset)
-        .focusable(false)
-    }
-}
-
-struct CustomTitleBar: View {
-    @EnvironmentObject var settings: SettingsManager
-    @Environment(\.colorScheme) private var colorScheme
-    let title: String
-    var showBackButton: Bool = false
-    var onBack: (() -> Void)? = nil
-    var onClose: () -> Void
-    private let githubURL = URL(string: "https://github.com/musamatini/WrapKey")!
-    var body: some View {
-        HStack(alignment: .center) {
-            if showBackButton {
-                TitleBarButton(systemName: "chevron.left", action: { onBack?() }, tintColor: AppTheme.accentColor1(for: colorScheme))
-                    .padding(.trailing, 4)
-                Text(title)
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
-                    .padding(.leading, 12)
-            } else {
-                HStack(spacing: 0) {
-                    if let appIcon = NSImage(named: NSImage.Name("AppIcon")) {
-                        Image(nsImage: appIcon)
-                            .resizable().aspectRatio(contentMode: .fit)
-                            .frame(width: 28, height: 28).clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                    }
-                    Link(destination: githubURL) { Text(title).font(.headline).fontWeight(.semibold) }
-                        .buttonStyle(.plain)
-                        .padding(.leading, 4)
-                        .focusable(false)
-                    ProfileDropdownButton()
-                        .padding(.leading, 8)
-                    .menuStyle(.borderlessButton)
-                    .menuIndicator(.hidden)
-                    .fixedSize()
-                    .padding(.leading, 8)
-                }
-            }
-            Spacer()
-            TitleBarButton(systemName: "xmark", action: onClose, tintColor: AppTheme.secondaryTextColor(for: colorScheme), yOffset: -2)
-        }
-        .padding(.horizontal)
-        .frame(height: 50)
-    }
-}
-
-
 struct HelpSectionBackground: View {
+    @EnvironmentObject var settings: SettingsManager
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         if colorScheme == .dark {
             VisualEffectBlur()
         } else {
-            AppTheme.cardBackgroundColor(for: colorScheme)
+            AppTheme.cardBackgroundColor(for: colorScheme, theme: settings.appTheme)
         }
     }
 }
@@ -199,7 +136,7 @@ struct HelpSection<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             Text(title)
                 .lineLimit(1)
                 .font(.title2.weight(.bold))
@@ -222,31 +159,37 @@ struct HelpSection<Content: View>: View {
 }
 
 struct CustomSegmentedPicker<T: Hashable & CaseIterable & RawRepresentable>: View where T.RawValue == String {
+    @EnvironmentObject var settings: SettingsManager
     @Environment(\.colorScheme) private var colorScheme
     let title: String
     @Binding var selection: T
     private var namespace: Namespace.ID
     private let containerPadding: CGFloat = 4
     private let cornerRadius: CGFloat = AppTheme.cornerRadius
+    
     init(title: String, selection: Binding<T>, in namespace: Namespace.ID) {
         self.title = title
         self._selection = selection
         self.namespace = namespace
     }
+    
     var body: some View {
         HStack(spacing: 0) {
             ForEach(Array(T.allCases), id: \.self) { option in
+                let isSelected = selection == option
+                let accentColor = AppTheme.accentColor1(for: colorScheme, theme: settings.appTheme)
+                
                 Text(option.rawValue)
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .frame(maxWidth: .infinity)
-                    .foregroundColor(selection == option ? AppTheme.primaryTextColor(for: colorScheme) : AppTheme.secondaryTextColor(for: colorScheme))
+                    .foregroundColor(isSelected ? AppTheme.adaptiveTextColor(on: accentColor) : AppTheme.secondaryTextColor(for: colorScheme))
                     .background {
                         ZStack {
-                            if selection == option {
+                            if isSelected {
                                 RoundedRectangle(cornerRadius: cornerRadius - containerPadding, style: .continuous)
-                                    .fill(AppTheme.accentColor1(for: colorScheme))
+                                    .fill(accentColor)
                                     .matchedGeometryEffect(id: "picker-highlight", in: namespace)
                             }
                         }
@@ -260,32 +203,37 @@ struct CustomSegmentedPicker<T: Hashable & CaseIterable & RawRepresentable>: Vie
             }
         }
         .padding(containerPadding)
-        .background { AppTheme.pickerBackgroundColor(for: colorScheme) }
+        .background { AppTheme.pickerBackgroundColor(for: colorScheme, theme: settings.appTheme) }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 }
 
 struct PillCard<Content: View>: View {
+    @EnvironmentObject var settings: SettingsManager
     @Environment(\.colorScheme) private var colorScheme
     let content: Content
     let backgroundColor: Color?
     let cornerRadius: CGFloat
+    
     init(@ViewBuilder content: () -> Content, backgroundColor: Color? = nil, cornerRadius: CGFloat) {
         self.content = content()
         self.backgroundColor = backgroundColor
         self.cornerRadius = cornerRadius
     }
+    
     var body: some View {
         content
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
-            .background { backgroundColor ?? AppTheme.pillBackgroundColor(for: colorScheme) }
+            .background { backgroundColor ?? AppTheme.pillBackgroundColor(for: colorScheme, theme: settings.appTheme) }
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 }
 
 struct CustomSwitchToggleStyle: ToggleStyle {
+    @EnvironmentObject var settings: SettingsManager
     @Environment(\.colorScheme) private var colorScheme
+    
     func makeBody(configuration: Configuration) -> some View {
         HStack {
             configuration.label
@@ -293,10 +241,10 @@ struct CustomSwitchToggleStyle: ToggleStyle {
             ZStack {
                 RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous)
                     .frame(width: 44, height: 26)
-                    .foregroundColor(configuration.isOn ? AppTheme.accentColor1(for: colorScheme) : AppTheme.pillBackgroundColor(for: colorScheme))
+                    .foregroundColor(configuration.isOn ? AppTheme.accentColor1(for: colorScheme, theme: settings.appTheme) : AppTheme.pillBackgroundColor(for: colorScheme, theme: settings.appTheme))
                 RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous)
                     .frame(width: 22, height: 22)
-                    .foregroundColor(.white)
+                    .foregroundColor(settings.appTheme == .graphite ? Color(white: 0.3) : .white)
                     .shadow(radius: 1, x: 0, y: 1)
                     .offset(x: configuration.isOn ? 9 : -9)
             }
@@ -311,14 +259,16 @@ struct CustomSwitchToggleStyle: ToggleStyle {
 }
 
 struct PillButtonStyle: ButtonStyle {
+    @EnvironmentObject var settings: SettingsManager
     @Environment(\.colorScheme) private var colorScheme
+    
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .fontWeight(.semibold)
             .padding(.vertical, 8)
             .padding(.horizontal, 12)
             .frame(maxWidth: .infinity)
-            .background { AppTheme.pillBackgroundColor(for: colorScheme) }
+            .background { AppTheme.pillBackgroundColor(for: colorScheme, theme: settings.appTheme) }
             .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
             .opacity(configuration.isPressed ? 0.8 : 1.0)
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
@@ -337,6 +287,7 @@ class CursorAtEndTextField: NSTextField {
 
 struct URLTextField: NSViewRepresentable {
     @Binding var text: String
+    
     class Coordinator: NSObject, NSTextFieldDelegate {
         var parent: URLTextField
         init(_ parent: URLTextField) { self.parent = parent }
@@ -345,7 +296,9 @@ struct URLTextField: NSViewRepresentable {
             parent.text = textField.stringValue
         }
     }
+    
     func makeCoordinator() -> Coordinator { Coordinator(self) }
+    
     func makeNSView(context: Context) -> NSTextField {
         let textField = CursorAtEndTextField()
         textField.delegate = context.coordinator
@@ -357,6 +310,7 @@ struct URLTextField: NSViewRepresentable {
         textField.font = .systemFont(ofSize: 13)
         return textField
     }
+    
     func updateNSView(_ nsView: NSTextField, context: Context) {
         if nsView.stringValue != text {
             nsView.stringValue = text
@@ -369,6 +323,7 @@ struct ProfileDropdownButton: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var showMenu = false
     @State private var buttonFrame: CGRect = .zero
+    
     var body: some View {
         Button(action: { showMenu.toggle() }) {
             HStack(spacing: 6) {
@@ -381,8 +336,7 @@ struct ProfileDropdownButton: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background { AppTheme.pillBackgroundColor(for: colorScheme) }
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
+            .contentShape(Rectangle())
             .background {
                 GeometryReader { geo in
                     Color.clear.onAppear { buttonFrame = geo.frame(in: .global) }
@@ -413,7 +367,7 @@ struct ProfileDropdownButton: View {
             }
             .frame(width: max(buttonFrame.width, 160))
             .padding(4)
-            .background { AppTheme.cardBackgroundColor(for: colorScheme) }
+            .background { AppTheme.cardBackgroundColor(for: colorScheme, theme: settings.appTheme) }
             .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
         }
     }

@@ -2,7 +2,7 @@
 
 # 🎉 WrapKey: Your Mac's Productivity Power-Up! 🚀
 
-### The Ultimate Hotkey Manager for Your Apps, Files, URLs, and Scripts.
+### The Ultimate Hotkey Manager for Your Apps, Files, URLs, Scripts, and More.
 
 ![Platform](https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white)
 ![Made with Swift](https://img.shields.io/badge/Made%20with-Swift-F05138?style=flat-square&logo=Swift&logoColor=white)
@@ -10,45 +10,69 @@
 ![Downloads](https://img.shields.io/github/downloads/musamatini/WrapKey/total?style=flat-square&logo=arrow-down-circle&color=brightgreen)
 ![Stars](https://img.shields.io/github/stars/musamatini/WrapKey?style=flat-square&logo=star&color=gold)
 
-WrapKey is a lightweight yet powerful macOS utility that puts your entire workflow at your fingertips. Go beyond simple app switching and create custom keyboard shortcuts to launch, hide, or run virtually anything. It's designed to be blazing-fast and intuitive, running discreetly from your menu bar to keep you in the flow.
+WrapKey is a lightweight yet powerful macOS utility that puts your entire digital life at your fingertips. Create simple, memorable, or complex keyboard shortcuts to launch, switch, or run virtually anything on your Mac. It's designed to be blazing-fast and intuitive, running discreetly from your menu bar to keep you in your creative flow.
+
+<!-- ![WrapKey Demo GIF](path to it) -->
 
 ## ✨ Core Features
 
-*   **🚀 Launch Anything:** Create hotkeys for not just Apps, but also **Files, Folders, URLs, Shell Scripts, and macOS Shortcuts**.
-*   **🎹 Per-Type Triggers:** Assign a unique trigger key for each shortcut category (e.g., `⌘` for Apps, `⌥` for URLs) for ultimate organization and control.
-*   **🗂️ Profiles:** Create different sets of hotkeys and triggers for different contexts like "Work," "Personal," or "Design." Switch between them instantly.
-*   **✏️ Fully Editable:** Edit your shortcuts' content—not just the hotkey. Change a URL, update a script, or point to a new file at any time.
-*   **⚠️ Conflict Detection:** WrapKey intelligently detects when a hotkey is assigned to multiple actions, alerts you, and runs *all* of them when pressed.
-*   **🔄 Import & Export:** Easily back up your entire configuration, including all profiles and shortcuts, to a JSON file. Perfect for migrating to a new Mac.
-*   **🌪️ Blazing Fast & Native:** Built in Swift for macOS, ensuring it's lightweight, fast, and efficient.
+*   ** Универсальные горячие клавиши (Universal Hotkeys):** Forget rigid rules. Assign *any* key combination to *any* action. `⌃+⌥+G` for Google? `F13` for your favorite script? You decide.
+*   **🚀 Launch Anything:** Create shortcuts for:
+    *   **Apps:** Launch, hide, or bring to the front.
+    *   **macOS Shortcuts:** Run any shortcut from Apple's Shortcuts app.
+    *   **URLs:** Open websites in your default browser instantly.
+    *   **Files & Folders:** Open any file or reveal a folder in Finder.
+    *   **Shell Scripts:** Execute commands silently or in a new Terminal window.
+*   **⭐ The Instant Cheatsheet:** Lost track of a hotkey? Just press your configurable Cheatsheet shortcut to get a beautiful, organized overlay of all your active shortcuts for the current profile.
+*   ** cycled: Advanced App Control:** Don't just launch apps—control them.
+    *   **Activate or Hide:** Press a hotkey once to show an app, press it again to hide it.
+    *   **Cycle Windows:** If an app has multiple windows, use its hotkey to cycle through them.
+*   **🗂️ Profiles:** Create different sets of hotkeys for different contexts like "Work," "Personal," or "Design." Switch between them instantly from the main window.
+*   **✏️ Fully Editable:** Edit both the hotkey and the content of your shortcuts at any time. Change a URL, update a script, or re-record a hotkey on the fly.
+*   **⚠️ Conflict Detection:** WrapKey intelligently detects when a hotkey is assigned to multiple actions, alerts you with a visual cue, and runs *all* of them when pressed.
+*   **🔄 Import & Export:** Easily back up your entire configuration—including all profiles and shortcuts—to a single JSON file. Perfect for migrating to a new Mac.
+*   **🎨 Customizable Appearance:** Choose between Light, Dark, or System-matching themes to make WrapKey feel right at home on your desktop.
+*   **🪄 Polished & Modern:** A beautiful, intuitive interface, a helpful onboarding experience, and a dedicated help section make getting started a breeze.
+*   **⚡ Blazing Fast & Native:** Built 100% in Swift for macOS, ensuring it's lightweight, efficient, and reliable. It uses native Accessibility APIs for maximum performance.
+*   **🔄 Automatic Updates:** With Sparkle integration, you'll get the latest features and fixes seamlessly.
 
-## 🚀 Quick Start
+<!-- 
+    SUGGESTION: Add a screenshot of the main window and the cheatsheet.
+-->
+| Main Window | Cheatsheet |
+| :---: | :---: |
+| <!-- <img src="path/to/main_window.png" width="400"> --> | <!-- <img src="path/to/cheatsheet.png" width="400"> --> |
+| *Intuitive management for all your shortcuts.* | *Your personal hotkey map, one press away.* |
+
+
+## 🚀 Getting Started
 
 1.  **[Download `WrapKey.zip`](https://github.com/musamatini/WrapKey/releases/latest)** from the latest release.
 2.  Unzip the file and drag **`WrapKey.app`** into your `/Applications` folder.
-3.  Launch WrapKey. You must **grant Accessibility permissions** when prompted for the hotkeys to work.
+3.  Launch WrapKey. You will be guided through a one-time setup:
+    *   You **must grant Accessibility permissions** when prompted for hotkeys to work.
+    *   Follow the Welcome screen for a quick tour.
 
-### How It Works
+### How to Use
 
 *   **To Add a Shortcut:**
-    1.  Click the WrapKey icon in your menu bar.
-    2.  Click the **`+ Add Shortcut`** button and choose a type (URL, File, Script, etc.).
-    3.  Follow the prompts and assign a hotkey when asked.
+    1.  Click the WrapKey icon in your menu bar (if enabled) or open the app.
+    2.  Click the **`+ Add Shortcut`** button and choose a type (App, URL, Script, etc.).
+    3.  Select the item you want to link.
+    4.  The **Hotkey Recorder** will appear. Press and hold your desired key combination, then release. Click "Done" to save.
 
-*   **To Assign an App (The Fast Way):**
-    1.  Bring the app you want to assign to the very front.
-    2.  Press your **`Secondary Key + App Trigger Key + [Letter]`**. (Default: `Right Option + Right Command + [Letter]`).
-
-*   **To Use a Shortcut:**
-    *   Press the **`Trigger Key + Assigned Key`** for that shortcut's category.
+*   **To Use the Cheatsheet:**
+    1.  Go to `App Settings` -> `Cheatsheet` to set a global hotkey.
+    2.  Press and hold that hotkey anywhere in macOS to see all your shortcuts. Release to hide it.
 
 *   **To Edit a Shortcut:**
-    *   Click the pencil icon next to any shortcut. You can choose to **Change Hotkey** or **Edit Content**.
+    *   In the main window, click the **pencil icon** next to any shortcut. You can choose to **Change Hotkey** or **Edit Content**.
 
 ## 👨‍💻 For Developers (Build from Source)
 
 1.  Clone the repo: `git clone https://github.com/musamatini/WrapKey.git`
-2.  Open `WrapKey.xcodeproj` in Xcode and run the project.
+2.  Open `WrapKey.xcodeproj` in Xcode.
+3.  Run the project.
 
 ## 🤝 Contribution & Support
 

@@ -1,4 +1,4 @@
-// WrapKeyApp.swift
+//wrapkeyapp.swift
 import SwiftUI
 import AppKit
 import Sparkle
@@ -32,7 +32,6 @@ final class UpdaterViewModel: ObservableObject {
     }
 }
 
-// MARK: - Menu Item View
 struct CheckForUpdatesView: View {
     @ObservedObject var updaterViewModel: UpdaterViewModel
 
@@ -44,9 +43,6 @@ struct CheckForUpdatesView: View {
     }
 }
 
-
-
-// MARK: - Root View to Manage Color Scheme
 struct RootView: View {
     @ObservedObject var settings: SettingsManager
     let appDelegate: AppDelegate
@@ -71,16 +67,12 @@ struct RootView: View {
     }
 }
 
-
-// MARK: - Main App
 @main
 struct WrapKeyApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-
         Settings {
-            EmptyView()
         }
     }
 }

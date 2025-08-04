@@ -6,6 +6,43 @@
     <description>Most recent changes with links to updates.</description>
     <language>en</language>
     <item>
+      <title>Version 1.1.0</title>
+      <pubDate>Thu, 5 Aug 2025 00:40:00 +0300</pubDate>
+      <description>
+        <![CDATA[
+            <h3>What's New in WrapKey</h3>
+            <ul>
+                <li>
+                    <strong>Fixed a bug</strong> Some apps dosnet open from the first launch, like the apps that hide in the menubar on launch. now by triggering the shortcut twice the user can open them.
+                </li>
+                <li>
+                    <strong>Added something:</strong> Quick assign apps by triggering a shortcut that can be set in settings.
+                </li>
+                <li>
+                    <strong>Added something:</strong> Added colorfull themes, select your fav theme from settings.
+                </li>
+                <li>
+                    <strong>Added something:</strong> I made it a normal MacOS window instead of a floating one.
+                </li>
+                <li>
+                    <strong>Added something:</strong> You can now assign shortcuts but also decide is it a single click, is it a hold or a double click or even a triple click.
+                </li>
+                <li>
+                    <strong>Hopefully i didnt forget anything lol</strong>
+                </li>
+            </ul>
+        ]]>
+      </description>
+      <enclosure
+        url="https://github.com/musamatini/WrapKey/releases/download/v1.1.0/WrapKey-Universal-Stable-v1.1.0.zip"
+        sparkle:version="8"
+        sparkle:shortVersionString="1.1.0"
+        length="3229626"
+        type="application/octet-stream"
+        sparkle:edSignature="5u15MeemSK6BfXTYYpzWPHioN5dOe8gHYt56YsqfUOmxbOe0FIUDr3sW2dUcCprW1nowO5M1jFPIRhddXt4ODQ== />
+    </item>
+    <item>
+    <item>
       <title>Version 1.0.6</title>
       <pubDate>Thu, 2 Aug 2024 18:50:00 +0300</pubDate>
       <description>

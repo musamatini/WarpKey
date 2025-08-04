@@ -1,10 +1,10 @@
+//Utils.swift
 import AppKit
 import Foundation
 import UserNotifications
 import CoreGraphics
 import Carbon.HIToolbox
 
-// MARK: - Notifications
 extension Notification.Name {
     static let openMainWindow = Notification.Name("openMainWindow")
     static let goToHelpPageInMainWindow = Notification.Name("goToHelpPageInMainWindow")
@@ -12,9 +12,11 @@ extension Notification.Name {
     static let requestAppRestart = Notification.Name("requestAppRestart")
     static let showCheatsheet = Notification.Name("showCheatsheet")
     static let hideCheatsheet = Notification.Name("hideCheatsheet")
+    static let showAssigningOverlay = Notification.Name("showAssigningOverlay")
+    static let hideAssigningOverlay = Notification.Name("hideAssigningOverlay")
+    static let accessibilityPermissionsLost = Notification.Name("accessibilityPermissionsLost")
 }
 
-// MARK: - Accessibility
 struct AccessibilityManager {
     static func checkPermissions() -> Bool {
         AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false] as CFDictionary)
@@ -22,10 +24,12 @@ struct AccessibilityManager {
 
     static func requestPermissions() {
         AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                NSWorkspace.shared.open(url)
+        }
     }
 }
 
-// MARK: - Notification Manager
 class NotificationManager {
     static let shared = NotificationManager()
     private let center = UNUserNotificationCenter.current()
@@ -86,7 +90,6 @@ class NotificationManager {
     }
 }
 
-// MARK: - Shortcut Runner
 struct ShortcutRunner {
     static func getAllShortcutNames(completion: @escaping ([String]) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
@@ -118,7 +121,6 @@ struct ShortcutRunner {
     }
 }
 
-// MARK: - Keyboard Layout
 struct KeyboardLayout {
     
     private static let systemKeyNames: [CGKeyCode: String] = [
@@ -215,8 +217,6 @@ struct KeyboardLayout {
     }
 }
 
-
-// MARK: - Appearance
 extension NSAppearance {
     var isDark: Bool {
         if bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
