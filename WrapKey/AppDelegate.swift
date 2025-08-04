@@ -1,3 +1,4 @@
+//AppDelegate.swift
 import AppKit
 import SwiftUI
 import UserNotifications

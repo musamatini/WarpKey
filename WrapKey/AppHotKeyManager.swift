@@ -1,3 +1,4 @@
+//AppHotkeyManager.swift
 import SwiftUI
 import AppKit
 import CoreGraphics
@@ -109,6 +110,7 @@ enum RecordingMode: Equatable {
     case create(target: ShortcutTarget)
     case edit(assignmentID: UUID, target: ShortcutTarget)
     case cheatsheet
+    case quickAssign
     case appAssigning(target: ShortcutTarget)
 }
 
@@ -147,7 +149,7 @@ class AppHotKeyManager: ObservableObject {
     }
     private var pressTracker: [String: PressInfo] = [:]
     private let multiPressThreshold: TimeInterval = 0.4
-    private let holdThreshold: TimeInterval = 0.5
+    private let holdThreshold: TimeInterval = 0.4
     
     var settings: SettingsManager
     
@@ -306,7 +308,7 @@ class AppHotKeyManager: ObservableObject {
             
             let requiresFrontmost: Bool
             switch state {
-            case .create, .edit, .cheatsheet: requiresFrontmost = true
+            case .create, .edit, .cheatsheet, .quickAssign: requiresFrontmost = true
             case .appAssigning: requiresFrontmost = false
             }
             
@@ -540,6 +542,12 @@ class AppHotKeyManager: ObservableObject {
                 self.recordedTriggerType = shortcut.trigger
                 self.originalKeysForEdit = shortcut.keys
                 self.originalTriggerForEdit = shortcut.trigger
+            case .quickAssign:
+                let shortcut = self.settings.appAssigningShortcut
+                self.recordedKeys = shortcut.keys
+                self.recordedTriggerType = shortcut.trigger
+                self.originalKeysForEdit = shortcut.keys
+                self.originalTriggerForEdit = shortcut.trigger
             case .appAssigning:
                 self.recordedKeys = []
                 self.recordedTriggerType = .press
@@ -575,8 +583,8 @@ class AppHotKeyManager: ObservableObject {
         } else if case .appAssigning = state {
             guard hasKeys else { closeRecorder(); return }
         } else {
-            if case .cheatsheet = state {
-                guard keysChanged else { closeRecorder(); return }
+            if case .cheatsheet = state, !hasKeys {
+            } else if case .quickAssign = state, !hasKeys {
             } else {
                 guard keysChanged || triggerChanged else { closeRecorder(); return }
             }
@@ -593,6 +601,9 @@ class AppHotKeyManager: ObservableObject {
         case .cheatsheet:
             settings.cheatsheetShortcut = SpecialShortcut(keys: finalKeys, trigger: .press)
             NotificationManager.shared.sendNotification(title: "Cheatsheet Shortcut Set!", body: "The cheatsheet hotkey is now \(shortcutKeyCombinationString(for: finalKeys)).")
+        case .quickAssign:
+            settings.appAssigningShortcut = SpecialShortcut(keys: finalKeys, trigger: self.recordedTriggerType)
+            NotificationManager.shared.sendNotification(title: "Quick Assign Shortcut Set!", body: "The Quick Assign hotkey is now \(shortcutKeyCombinationString(for: finalKeys)).")
         case .appAssigning(let target):
             let newAssignment = Assignment(shortcut: finalKeys, trigger: self.recordedTriggerType, configuration: .init(target:target))
             settings.addAssignment(newAssignment)
@@ -615,6 +626,9 @@ class AppHotKeyManager: ObservableObject {
         case .cheatsheet:
             settings.cheatsheetShortcut = SpecialShortcut(keys: [], trigger: .press)
             NotificationManager.shared.sendNotification(title: "Cheatsheet Shortcut Cleared", body: "The hotkey for the cheatsheet has been removed.")
+        case .quickAssign:
+            settings.appAssigningShortcut = SpecialShortcut(keys: [], trigger: .press)
+            NotificationManager.shared.sendNotification(title: "Quick Assign Shortcut Cleared", body: "The hotkey for Quick Assign has been removed.")
         case .appAssigning:
             closeRecorder()
         }
@@ -664,40 +678,35 @@ class AppHotKeyManager: ObservableObject {
         }
     }
 
-
-
-        private func forceReopenAndActivate(app: NSRunningApplication) {
-            // This is the most robust way to bring an app to the front and ensure it has a window.
-            // 'reopen' is the command that mimics clicking an app in the Dock.
-            guard let bundleId = app.bundleIdentifier else { return }
-            
-            let scriptSource = """
-            tell application id "\(bundleId)"
-                reopen
-                activate
-            end tell
-            """
-            
-            if let script = NSAppleScript(source: scriptSource) {
-                var error: NSDictionary?
-                script.executeAndReturnError(&error)
-                if let err = error {
-                    print("AppleScript reopen/activate failed for \(bundleId): \(err)")
-                    DispatchQueue.main.async {
-                        app.activate(options: [.activateIgnoringOtherApps])
-                    }
+    private func forceReopenAndActivate(app: NSRunningApplication) {
+        guard let bundleId = app.bundleIdentifier else { return }
+        
+        let scriptSource = """
+        tell application id "\(bundleId)"
+            reopen
+            activate
+        end tell
+        """
+        
+        if let script = NSAppleScript(source: scriptSource) {
+            var error: NSDictionary?
+            script.executeAndReturnError(&error)
+            if let err = error {
+                print("AppleScript reopen/activate failed for \(bundleId): \(err)")
+                DispatchQueue.main.async {
+                    app.activate(options: [.activateIgnoringOtherApps])
                 }
             }
         }
+    }
 
-        private func activateOrHide(app: NSRunningApplication) {
-            if app.isActive {
-                app.hide()
-            } else {
-                self.forceReopenAndActivate(app: app)
-            }
+    private func activateOrHide(app: NSRunningApplication) {
+        if app.isActive {
+            app.hide()
+        } else {
+            self.forceReopenAndActivate(app: app)
         }
-
+    }
     
     private func handleAppActivation(bundleId: String, behavior: ShortcutConfiguration.Behavior) {
         DispatchQueue.global(qos: .userInitiated).async {

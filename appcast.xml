@@ -5,32 +5,32 @@
     <link>https://raw.githubusercontent.com/musamatini/WrapKey/main/appcast.xml</link>
     <description>Most recent changes with links to updates.</description>
     <language>en</language>
-<!--    <item>-->
-<!--      <title>Version 1.1.0</title>-->
-<!--      <pubDate>Thu, 5 Aug 2025 00:40:00 +0300</pubDate>-->
-<!--      <description>-->
-<!--        <![CDATA[-->
-<!--            <h3>What's New in WrapKey</h3>-->
-<!--            <ul>-->
-<!--                <li><strong>Bug Fix:</strong> Fixed an issue where some apps (especially those that hide in the menu bar) wouldn't open on the first launch. Triggering the shortcut a second time now correctly opens them.</li>-->
-<!--                <li><strong>New Feature:</strong> Quickly assign apps by triggering a global shortcut, which can be configured in settings.</li>-->
-<!--                <li><strong>New Feature:</strong> Added colorful themes. Select your favorite theme from the settings menu.</li>-->
-<!--                <li><strong>Improvement:</strong> The app now uses a standard macOS window instead of a floating panel.</li>-->
-<!--                <li><strong>Improvement:</strong> You can now assign shortcuts to trigger on a single click, a hold, a double-click, or a triple-click.</li>-->
-<!--            </ul>-->
-<!--        ]]>-->
-<!--      </description>-->
-<!--      <enclosure-->
-<!--        url="https://github.com/musamatini/WrapKey/releases/download/v1.1.0/WrapKey-Universal-Stable-v1.1.0.zip"-->
-<!--        sparkle:version="8"-->
-<!--        sparkle:shortVersionString="1.1.0"-->
-<!--        length="3229626"-->
-<!--        type="application/octet-stream"-->
-<!--        sparkle:edSignature="5u15MeemSK6BfXTYYpzWPHioN5dOe8gHYt56YsqfUOmxbOe0FIUDr3sW2dUcCprW1nowO5M1jFPIRhddXt4ODQ==" />-->
-<!--    </item>-->
+    <item>
+      <title>Version 1.1.0</title>
+      <pubDate>Thu, 5 Aug 2025 00:40:00 +0300</pubDate>
+      <description>
+        <![CDATA[
+            <h3>What's New in WrapKey</h3>
+            <ul>
+                <li><strong>Bug Fix:</strong> Fixed an issue where some apps (especially those that hide in the menu bar) wouldn't open on the first launch. Triggering the shortcut a second time now correctly opens them.</li>
+                <li><strong>New Feature:</strong> Quickly assign apps by triggering a global shortcut, which can be configured in settings.</li>
+                <li><strong>New Feature:</strong> Added colorful themes. Select your favorite theme from the settings menu.</li>
+                <li><strong>Improvement:</strong> The app now uses a standard macOS window instead of a floating panel.</li>
+                <li><strong>Improvement:</strong> You can now assign shortcuts to trigger on a single click, a hold, a double-click, or a triple-click.</li>
+            </ul>
+        ]]>
+      </description>
+      <enclosure
+        url="https://github.com/musamatini/WrapKey/releases/download/v1.1.0/WrapKey-Universal-Stable-v1.1.0.zip"
+        sparkle:version="8"
+        sparkle:shortVersionString="1.1.0"
+        length="3231713"
+        type="application/octet-stream"
+        sparkle:edSignature="876rMX4RYTHDgeOB6jbWwTPBEHz7JgDa3W6e+ffKk8QwGRt8jQZqY/51Z/rDrq1WlY9GpB0CBb1mFrr2psKtCA==" />
+    </item>
     <item>
       <title>Version 1.0.6</title>
-      <pubDate>Thu, 2 Aug 2024 18:50:00 +0300</pubDate>
+      <pubDate>Thu, 2 Aug 2025 18:50:00 +0300</pubDate>
       <description>
         <![CDATA[
             <h3>What's New in WrapKey</h3>
@@ -51,7 +51,7 @@
     </item>
     <item>
       <title>Version 1.0.5</title>
-      <pubDate>Thu, 31 Jul 2024 11:30:00 +0300</pubDate>
+      <pubDate>Thu, 31 Jul 2025 11:30:00 +0300</pubDate>
       <description>
         <![CDATA[
             <h3>What's New in WrapKey</h3>
@@ -71,7 +71,7 @@
     </item>
     <item>
       <title>Version 1.0.4</title>
-      <pubDate>Thu, 31 Jul 2024 11:30:00 +0300</pubDate>
+      <pubDate>Thu, 31 Jul 2025 11:30:00 +0300</pubDate>
       <description>
         <![CDATA[
             <h3>What's New in WrapKey</h3>
@@ -91,7 +91,7 @@
     </item>
     <item>
       <title>Version 1.0.3</title>
-      <pubDate>Thu, 31 Jul 2024 06:30:00 +0300</pubDate>
+      <pubDate>Thu, 31 Jul 2025 06:30:00 +0300</pubDate>
       <description>
         <!-- FIX: Wrapped list items in a <ul> tag. -->
         <![CDATA[
@@ -113,7 +113,7 @@
     </item>
     <item>
       <title>Version 1.0.2</title>
-      <pubDate>Thu, 31 Jul 2024 05:30:00 +0300</pubDate>
+      <pubDate>Thu, 31 Jul 2025 05:30:00 +0300</pubDate>
       <description>
         <![CDATA[
           <ul>
@@ -144,7 +144,7 @@
               </ul>
             ]]>
           </description>
-          <pubDate>Tue, 21 May 2024 10:00:00 +0000</pubDate>
+          <pubDate>Tue, 21 May 2025 10:00:00 +0000</pubDate>
           <enclosure
             url="https://github.com/musamatini/WrapKey/releases/download/v1.0.1/WrapKey-Universal-Stable-v1.0.1.zip"
             sparkle:version="2"

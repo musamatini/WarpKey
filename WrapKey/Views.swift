@@ -1,3 +1,4 @@
+//Views.swift
 import SwiftUI
 import AppKit
 import Sparkle
@@ -412,7 +413,7 @@ struct AppSettingsView: View {
                     }, cornerRadius: AppTheme.cornerRadius)
 
                     HStack(spacing: 10) {
-                        Button("Set Shortcut") { manager.startRecording(for: .appAssigning(target: .app(bundleId: ""))) }
+                        Button("Set Shortcut") { manager.startRecording(for: .quickAssign) }
                         Button("Clear") { settings.appAssigningShortcut = SpecialShortcut(keys: [], trigger: .press) }
                             .disabled(settings.appAssigningShortcut.keys.isEmpty)
                     }
@@ -1066,6 +1067,8 @@ struct ShortcutRecordingView: View {
             return manager.getDisplayName(for: target) ?? "..."
         case .cheatsheet:
             return "Cheatsheet"
+        case .quickAssign:
+            return "Quick Assign"
         case .appAssigning(let target):
             return manager.getDisplayName(for: target) ?? "Quick Assign"
         }
