@@ -12,24 +12,11 @@
         <![CDATA[
             <h3>What's New in WrapKey</h3>
             <ul>
-                <li>
-                    <strong>Fixed a bug</strong> Some apps dosnet open from the first launch, like the apps that hide in the menubar on launch. now by triggering the shortcut twice the user can open them.
-                </li>
-                <li>
-                    <strong>Added something:</strong> Quick assign apps by triggering a shortcut that can be set in settings.
-                </li>
-                <li>
-                    <strong>Added something:</strong> Added colorfull themes, select your fav theme from settings.
-                </li>
-                <li>
-                    <strong>Added something:</strong> I made it a normal MacOS window instead of a floating one.
-                </li>
-                <li>
-                    <strong>Added something:</strong> You can now assign shortcuts but also decide is it a single click, is it a hold or a double click or even a triple click.
-                </li>
-                <li>
-                    <strong>Hopefully i didnt forget anything lol</strong>
-                </li>
+                <li><strong>Bug Fix:</strong> Fixed an issue where some apps (especially those that hide in the menu bar) wouldn't open on the first launch. Triggering the shortcut a second time now correctly opens them.</li>
+                <li><strong>New Feature:</strong> Quickly assign apps by triggering a global shortcut, which can be configured in settings.</li>
+                <li><strong>New Feature:</strong> Added colorful themes. Select your favorite theme from the settings menu.</li>
+                <li><strong>Improvement:</strong> The app now uses a standard macOS window instead of a floating panel.</li>
+                <li><strong>Improvement:</strong> You can now assign shortcuts to trigger on a single click, a hold, a double-click, or a triple-click.</li>
             </ul>
         ]]>
       </description>
@@ -42,22 +29,15 @@
         sparkle:edSignature="5u15MeemSK6BfXTYYpzWPHioN5dOe8gHYt56YsqfUOmxbOe0FIUDr3sW2dUcCprW1nowO5M1jFPIRhddXt4ODQ==" />
     </item>
     <item>
-    <item>
       <title>Version 1.0.6</title>
       <pubDate>Thu, 2 Aug 2024 18:50:00 +0300</pubDate>
       <description>
         <![CDATA[
             <h3>What's New in WrapKey</h3>
             <ul>
-                <li>
-                    <strong>Fixed - Launch at Login:</strong> Resolved an issue that prevented the "Launch at Login" setting from working correctly.
-                </li>
-                <li>
-                    <strong>Fixed - Brightness Keys:</strong> Addressed a bug where the functions row keys were not functioning.
-                </li>
-                <li>
-                    <strong>Fixed - Caps Lock:</strong> Corrected an issue that caused the Caps Lock key to not work proberly.
-                </li>
+                <li><strong>Fixed - Launch at Login:</strong> Resolved an issue that prevented the "Launch at Login" setting from working correctly.</li>
+                <li><strong>Fixed - Brightness Keys:</strong> Addressed a bug where the functions row keys were not functioning.</li>
+                <li><strong>Fixed - Caps Lock:</strong> Corrected an issue that caused the Caps Lock key to not work properly.</li>
             </ul>
         ]]>
       </description>
@@ -76,20 +56,8 @@
         <![CDATA[
             <h3>What's New in WrapKey</h3>
             <ul>
-              <li>
-                <ul>
-                  <li>
-                    <strong>Many Many bug fixses:</strong> fixing the app freezes sometimes esspically when using cycle. many many more but i cant remember, i should start taking notes maan...
-                  </li>
-                </ul>
-              </li>
-              <li>
-                <ul>
-                  <li>
-                    <strong>Added Features:</strong> Cheatsheet: adjust its shortcut in settings! Removed the trigger and secondary keys functionality, now users can add whatever shortcuts they like to whichever apps they like! but they should assign the app shortcuts via the menu instead of clicking the assigning shortcuts.
-                  </li>
-                </ul>
-              </li>
+              <li><strong>Bug Fixes:</strong> Addressed several bugs that caused the app to freeze, especially when using the cycle feature.</li>
+              <li><strong>New Features:</strong> Added a Cheatsheet (adjust its shortcut in settings). Reworked the shortcut system: removed trigger/secondary keys in favor of assigning any shortcut to any app via the menu.</li>
             </ul>
         ]]>
       </description>
@@ -108,52 +76,8 @@
         <![CDATA[
             <h3>What's New in WrapKey</h3>
             <ul>
-              <li>
-                <ul>
-                  <li>
-                    <strong>App Assignment Fixed:</strong> Resolved a critical bug where the hotkey for assigning new apps (combining <code>Secondary Keys</code> and <code>App Triggers</code>) was not being recognized.
-                  </li>
-                </ul>
-              </li>
-              <li>
-                <ul>
-                  <li>
-                    <strong>Improved Collision Logic:</strong> The app now correctly prevents a key from being used in both the <code>App Triggers</code> and <code>Secondary Keys</code> groups simultaneously.
-                  </li>
-                </ul>
-              </li>
-            </ul>
-        ]]>
-      </description>
-      <enclosure
-        url="https://github.com/musamatini/WrapKey/releases/download/v1.0.4/WrapKey-Universal-Stable-v1.0.4.zip"
-        sparkle:version="5"
-        sparkle:shortVersionString="1.0.4"
-        length="3150868"
-        type="application/octet-stream"
-        sparkle:edSignature="2emxKi3UWFmbmZwiOfYAWLO/WaQMNpazam7Xl2aUKk9R4jsHhOSpsdXVekCbdF8N3sf9PIINj90wQOzpVqDbCA==" />
-    </item>
-    <item>
-      <title>Version 1.0.4</title>
-      <pubDate>Thu, 31 Jul 2024 11:30:00 +0300</pubDate>
-      <description>
-        <![CDATA[
-            <h3>What's New in WrapKey</h3>
-            <ul>
-              <li>
-                <ul>
-                  <li>
-                    <strong>App Assignment Fixed:</strong> Resolved a critical bug where the hotkey for assigning new apps (combining <code>Secondary Keys</code> and <code>App Triggers</code>) was not being recognized.
-                  </li>
-                </ul>
-              </li>
-              <li>
-                <ul>
-                  <li>
-                    <strong>Improved Collision Logic:</strong> The app now correctly prevents a key from being used in both the <code>App Triggers</code> and <code>Secondary Keys</code> groups simultaneously.
-                  </li>
-                </ul>
-              </li>
+              <li><strong>App Assignment Fixed:</strong> Resolved a critical bug where the hotkey for assigning new apps was not being recognized.</li>
+              <li><strong>Improved Collision Logic:</strong> The app now correctly prevents a key from being used in multiple trigger groups simultaneously.</li>
             </ul>
         ]]>
       </description>
@@ -169,21 +93,14 @@
       <title>Version 1.0.3</title>
       <pubDate>Thu, 31 Jul 2024 06:30:00 +0300</pubDate>
       <description>
+        <!-- FIX: Wrapped list items in a <ul> tag. -->
         <![CDATA[
             <h3>What's New in WrapKey 1.0.3</h3>
-            <li>
-              <ul>
-                <li>
-                  <strong>New Menu Bar Launcher:</strong> The menu bar icon now opens a quick-launch menu to run your shortcuts directly.
-                </li>
-                <li>
-                  <strong>Hotkey-Optional Shortcuts:</strong> You can now create shortcuts without assigning a hotkey, making them accessible from the new menu.
-                </li>
-                <li>
-                  <strong>Fixes & Polish:</strong> Corrected the app version display, made the author credit a colored link, and cleaned up the UI for a better experience.
-                </li>
-              </ul>
-            </li>
+            <ul>
+                <li><strong>New Menu Bar Launcher:</strong> The menu bar icon now opens a quick-launch menu to run your shortcuts directly.</li>
+                <li><strong>Hotkey-Optional Shortcuts:</strong> You can now create shortcuts without assigning a hotkey, making them accessible from the new menu.</li>
+                <li><strong>Fixes & Polish:</strong> Corrected the app version display, made the author credit a colored link, and cleaned up the UI for a better experience.</li>
+            </ul>
         ]]>
       </description>
       <enclosure
