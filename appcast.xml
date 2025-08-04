@@ -5,29 +5,29 @@
     <link>https://raw.githubusercontent.com/musamatini/WrapKey/main/appcast.xml</link>
     <description>Most recent changes with links to updates.</description>
     <language>en</language>
-    <item>
-      <title>Version 1.1.0</title>
-      <pubDate>Thu, 5 Aug 2025 00:40:00 +0300</pubDate>
-      <description>
-        <![CDATA[
-            <h3>What's New in WrapKey</h3>
-            <ul>
-                <li><strong>Bug Fix:</strong> Fixed an issue where some apps (especially those that hide in the menu bar) wouldn't open on the first launch. Triggering the shortcut a second time now correctly opens them.</li>
-                <li><strong>New Feature:</strong> Quickly assign apps by triggering a global shortcut, which can be configured in settings.</li>
-                <li><strong>New Feature:</strong> Added colorful themes. Select your favorite theme from the settings menu.</li>
-                <li><strong>Improvement:</strong> The app now uses a standard macOS window instead of a floating panel.</li>
-                <li><strong>Improvement:</strong> You can now assign shortcuts to trigger on a single click, a hold, a double-click, or a triple-click.</li>
-            </ul>
-        ]]>
-      </description>
-      <enclosure
-        url="https://github.com/musamatini/WrapKey/releases/download/v1.1.0/WrapKey-Universal-Stable-v1.1.0.zip"
-        sparkle:version="8"
-        sparkle:shortVersionString="1.1.0"
-        length="3229626"
-        type="application/octet-stream"
-        sparkle:edSignature="5u15MeemSK6BfXTYYpzWPHioN5dOe8gHYt56YsqfUOmxbOe0FIUDr3sW2dUcCprW1nowO5M1jFPIRhddXt4ODQ==" />
-    </item>
+<!--    <item>-->
+<!--      <title>Version 1.1.0</title>-->
+<!--      <pubDate>Thu, 5 Aug 2025 00:40:00 +0300</pubDate>-->
+<!--      <description>-->
+<!--        <![CDATA[-->
+<!--            <h3>What's New in WrapKey</h3>-->
+<!--            <ul>-->
+<!--                <li><strong>Bug Fix:</strong> Fixed an issue where some apps (especially those that hide in the menu bar) wouldn't open on the first launch. Triggering the shortcut a second time now correctly opens them.</li>-->
+<!--                <li><strong>New Feature:</strong> Quickly assign apps by triggering a global shortcut, which can be configured in settings.</li>-->
+<!--                <li><strong>New Feature:</strong> Added colorful themes. Select your favorite theme from the settings menu.</li>-->
+<!--                <li><strong>Improvement:</strong> The app now uses a standard macOS window instead of a floating panel.</li>-->
+<!--                <li><strong>Improvement:</strong> You can now assign shortcuts to trigger on a single click, a hold, a double-click, or a triple-click.</li>-->
+<!--            </ul>-->
+<!--        ]]>-->
+<!--      </description>-->
+<!--      <enclosure-->
+<!--        url="https://github.com/musamatini/WrapKey/releases/download/v1.1.0/WrapKey-Universal-Stable-v1.1.0.zip"-->
+<!--        sparkle:version="8"-->
+<!--        sparkle:shortVersionString="1.1.0"-->
+<!--        length="3229626"-->
+<!--        type="application/octet-stream"-->
+<!--        sparkle:edSignature="5u15MeemSK6BfXTYYpzWPHioN5dOe8gHYt56YsqfUOmxbOe0FIUDr3sW2dUcCprW1nowO5M1jFPIRhddXt4ODQ==" />-->
+<!--    </item>-->
     <item>
       <title>Version 1.0.6</title>
       <pubDate>Thu, 2 Aug 2024 18:50:00 +0300</pubDate>
