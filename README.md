@@ -31,7 +31,7 @@ Here are the completed sections for your README.md.
     *   **macOS Shortcuts (` Shortcuts`):** Run any of your existing shortcuts from Apple's Shortcuts app.
 *   **⚡️ Advanced Triggers:** Go beyond a simple key press. Assign actions to a **Double Press**, **Triple Press**, or a long **Hold** of the same hotkey.
 *   **🧑‍💻 Profiles:** Create different sets of shortcuts for different contexts like "Work" 👔, "Gaming" 🎮, or "Design" 🎨 and switch between them easily.
-*   ** cheat-sheet** A global hotkey to pop up a beautiful, organized list of all your active shortcuts for the current profile. Never forget a hotkey again!
+*   **cheat-sheet** A global hotkey to pop up a beautiful, organized list of all your active shortcuts for the current profile. Never forget a hotkey again!
 *   **🪄 Quick Assign:** Use a special hotkey to instantly bring up the recorder for whatever app you're currently focused on.
 *   **⚠️ Conflict Detection:** The app cleverly warns you if you've assigned the same hotkey and trigger to multiple actions.
 *   **🎨 Customizable UI:** Make WrapKey your own with multiple color themes and support for system light/dark modes.
@@ -45,24 +45,23 @@ Here are the completed sections for your README.md.
     *   You **must grant Accessibility permissions** when prompted for hotkeys to work.
     *   Follow the Welcome screen for a quick tour.
 
-## 🚀 Getting Started
-
-1.  **[Download `WrapKey.zip`](https://github.com/musamatini/WrapKey/releases/latest)** from the latest release.
-2.  Unzip the file and drag **`WrapKey.app`** into your `/Applications` folder.
-3.  Launch WrapKey. You will be guided through a one-time setup:
-    *   You **must grant Accessibility permissions** when prompted for hotkeys to work.
-    *   Follow the Welcome screen for a quick tour.
-
 ### How to Use
 
-1.  **➕ Add a New Shortcut:** From the main window, click the **`+ Add Shortcut`** button at the bottom.
-2.  **🎯 Pick Your Target:** Choose what you want to control: an App, a URL, a File/Folder, a Script, or a macOS Shortcut.
+1.  **➕ Create a Shortcut (Two Ways!):**
+    *   **The Standard Way:** From the main window, click the **`+ Add Shortcut`** button at the bottom. This lets you add any type of shortcut.
+    *   **The Quick Way (for Apps 🪄):** Use your global "Quick Assign" hotkey (you can set this in **App Settings**) to instantly start creating a shortcut for your currently active application. It's the fastest way to add apps!
+
+2.  **🎯 Pick Your Target:** If you used the standard way, choose what you want to control: an App, a URL, a File/Folder, a Script, or a macOS Shortcut. (The Quick Way automatically selects the app for you).
+
 3.  **🎤 Record Your Hotkey:** After you select your target, the hotkey recorder will appear.
     *   Press and hold the key combination you want (e.g., `⌃ + ⌥ + P`).
     *   Optionally, use the dropdown to select an advanced trigger like **Double Press** or **Hold**.
     *   Click **Done**.
+
 4.  **🔥 Use It Everywhere:** Your hotkey is now active system-wide! Press it anywhere in macOS to trigger your action.
+
 5.  **✏️ Manage Your Shortcuts:** All your shortcuts are listed in the main window. Click the pencil icon to change its hotkey/content or the trash icon to delete it.
+
 6.  **⚙️ Explore Settings:** Click **"App Settings"** to manage profiles, set up the Cheatsheet and Quick Assign hotkeys, and customize the app's appearance.
 
 ## 👨‍💻 For Developers (Build from Source)
