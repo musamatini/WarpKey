@@ -16,7 +16,7 @@ WrapKey is a lightweight yet powerful macOS utility that puts your entire digita
 
 ## ✨ Core Features
 
-*   ** Универсальные горячие клавиши (Universal Hotkeys):** Forget rigid rules. Assign *any* key combination to *any* action. `⌃+⌥+G` for Google? `F13` for your favorite script? You decide.
+*   ** Universal Hotkeys:** Forget rigid rules. Assign *any* key combination to *any* action. `⌃+⌥+G` for Google? `F13` for your favorite script? You decide.
 *   **🚀 Launch Anything:** Create shortcuts for:
     *   **Apps:** Launch, hide, or bring to the front.
     *   **macOS Shortcuts:** Run any shortcut from Apple's Shortcuts app.
