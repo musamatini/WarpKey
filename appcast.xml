@@ -23,7 +23,8 @@
           length="3267737"
           type="application/octet-stream"
           sparkle:edSignature="OTVuSo6pLhWRzGdDx/b8jAlvR1AclndOOgCv8MuHmoPAcpm1a6ri5DWziqvHhs1rdrdgQY1fqlm8ODiIDDSfAg==" />
-      </item>
+    </item>
+    <item>
       <title>Version 1.1.4</title>
       <pubDate>Thu, 6 Aug 2025 00:20:00 +0300</pubDate>
       <description>
@@ -191,7 +192,6 @@
       <title>Version 1.0.3</title>
       <pubDate>Thu, 31 Jul 2025 06:30:00 +0300</pubDate>
       <description>
-        <!-- FIX: Wrapped list items in a <ul> tag. -->
         <![CDATA[
             <h3>What's New in WrapKey 1.0.3</h3>
             <ul>
