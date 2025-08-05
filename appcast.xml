@@ -6,6 +6,24 @@
     <description>Most recent changes with links to updates.</description>
     <language>en</language>
     <item>
+        <title>Version 1.1.5</title>
+        <pubDate>Thu, 6 Aug 2025 02:20:00 +0300</pubDate>
+        <description>
+          <![CDATA[
+              <h3>What's New in WrapKey</h3>
+              <ul>
+                  <li><strong>Improvment:</strong>Can name scripts now!</li>
+              </ul>
+          ]]>
+        </description>
+        <enclosure
+          url="https://github.com/musamatini/WrapKey/releases/download/v1.1.5/WrapKey-Universal-Stable-v1.1.5.zip"
+          sparkle:version="13"
+          sparkle:shortVersionString="1.1.5"
+          length="3267737"
+          type="application/octet-stream"
+          sparkle:edSignature="OTVuSo6pLhWRzGdDx/b8jAlvR1AclndOOgCv8MuHmoPAcpm1a6ri5DWziqvHhs1rdrdgQY1fqlm8ODiIDDSfAg==" />
+      </item>
       <title>Version 1.1.4</title>
       <pubDate>Thu, 6 Aug 2025 00:20:00 +0300</pubDate>
       <description>

@@ -213,34 +213,88 @@ class SettingsManager: ObservableObject {
     }
 
     private static func loadAndMigrateProfiles(from key: String) -> [Profile] {
-        if let data = UserDefaults.standard.data(forKey: key),
-           let decodedProfiles = try? JSONDecoder().decode([Profile].self, from: data),
-           !decodedProfiles.isEmpty {
-            return decodedProfiles
+        guard let data = UserDefaults.standard.data(forKey: key) else {
+            let oldProfilesKeyV5 = "WrapKey_Profiles_v5"
+            if let oldData = UserDefaults.standard.data(forKey: oldProfilesKeyV5) {
+                struct OldShortcutKey: Codable { var keyCode: CGKeyCode; var isTrueModifier: Bool }
+                struct OldAssignmentV5: Codable { var id: UUID; var keyCode: CGKeyCode?; var configuration: ShortcutConfiguration }
+                struct OldProfileV5: Codable {
+                    var id: UUID; var name: String; var triggerModifiers: [ShortcutCategory: [OldShortcutKey]];
+                    var secondaryModifier: [OldShortcutKey]; var assignments: [OldAssignmentV5]
+                }
+
+                if let decodedOldProfiles = try? JSONDecoder().decode([OldProfileV5].self, from: oldData) {
+                    let migratedProfiles = decodedOldProfiles.map { oldProfile -> Profile in
+                        let newAssignments = oldProfile.assignments.map { oldAssignment -> Assignment in
+                            var newShortcut: [ShortcutKey] = []
+                            let category = oldAssignment.configuration.target.category
+                            let modifiersToApply = oldProfile.triggerModifiers[category] ?? []
+                            newShortcut.append(contentsOf: modifiersToApply.map { ShortcutKey.from(keyCode: $0.keyCode, isModifier: $0.isTrueModifier, isSystemEvent: false) })
+                            if let kc = oldAssignment.keyCode { newShortcut.append(ShortcutKey.from(keyCode: kc, isModifier: false, isSystemEvent: false)) }
+                            return Assignment(id: oldAssignment.id, shortcut: newShortcut, trigger: .press, configuration: oldAssignment.configuration)
+                        }
+                        return Profile(id: oldProfile.id, name: oldProfile.name, assignments: newAssignments)
+                    }
+                    UserDefaults.standard.removeObject(forKey: oldProfilesKeyV5)
+                    if let encoded = try? JSONEncoder().encode(migratedProfiles) {
+                        UserDefaults.standard.set(encoded, forKey: key)
+                    }
+                    return migratedProfiles
+                }
+            }
+            return [createDefaultProfile()]
         }
-        
-        let oldProfilesKeyV5 = "WrapKey_Profiles_v5"
-        if let oldData = UserDefaults.standard.data(forKey: oldProfilesKeyV5) {
-            struct OldShortcutKey: Codable { var keyCode: CGKeyCode; var isTrueModifier: Bool }
-            struct OldAssignmentV5: Codable { var id: UUID; var keyCode: CGKeyCode?; var configuration: ShortcutConfiguration }
-            struct OldProfileV5: Codable {
-                var id: UUID; var name: String; var triggerModifiers: [ShortcutCategory: [OldShortcutKey]];
-                var secondaryModifier: [OldShortcutKey]; var assignments: [OldAssignmentV5]
+
+        do {
+            let profiles = try JSONDecoder().decode([Profile].self, from: data)
+            if !profiles.isEmpty {
+                return profiles
+            }
+        } catch {
+            struct OldProfile: Decodable {
+                let id: UUID
+                let name: String
+                let assignments: [OldAssignment]
             }
 
-            if let decodedOldProfiles = try? JSONDecoder().decode([OldProfileV5].self, from: oldData) {
-                let migratedProfiles = decodedOldProfiles.map { oldProfile -> Profile in
+            struct OldAssignment: Decodable {
+                let id: UUID
+                let shortcut: [ShortcutKey]
+                let trigger: ShortcutTriggerType
+                let configuration: OldConfiguration
+            }
+
+            struct OldConfiguration: Decodable {
+                let target: OldShortcutTarget
+                let behavior: ShortcutConfiguration.Behavior
+            }
+
+            enum OldShortcutTarget: Decodable {
+                case app(bundleId: String)
+                case url(String)
+                case file(String)
+                case script(command: String, runsInTerminal: Bool)
+                case shortcut(name: String)
+            }
+
+            if let oldProfiles = try? JSONDecoder().decode([OldProfile].self, from: data) {
+                let migratedProfiles = oldProfiles.map { oldProfile -> Profile in
                     let newAssignments = oldProfile.assignments.map { oldAssignment -> Assignment in
-                        var newShortcut: [ShortcutKey] = []
-                        let category = oldAssignment.configuration.target.category
-                        let modifiersToApply = oldProfile.triggerModifiers[category] ?? []
-                        newShortcut.append(contentsOf: modifiersToApply.map { ShortcutKey.from(keyCode: $0.keyCode, isModifier: $0.isTrueModifier, isSystemEvent: false) })
-                        if let kc = oldAssignment.keyCode { newShortcut.append(ShortcutKey.from(keyCode: kc, isModifier: false, isSystemEvent: false)) }
-                        return Assignment(id: oldAssignment.id, shortcut: newShortcut, trigger: .press, configuration: oldAssignment.configuration)
+                        let newTarget: ShortcutTarget
+                        switch oldAssignment.configuration.target {
+                            case .app(let id): newTarget = .app(bundleId: id)
+                            case .url(let s): newTarget = .url(s)
+                            case .file(let s): newTarget = .file(s)
+                            case .shortcut(let n): newTarget = .shortcut(name: n)
+                            case .script(let c, let r): newTarget = .script(name: "Script", command: c, runsInTerminal: r)
+                        }
+                        
+                        let newConfig = ShortcutConfiguration(target: newTarget, behavior: oldAssignment.configuration.behavior)
+                        return Assignment(id: oldAssignment.id, shortcut: oldAssignment.shortcut, trigger: oldAssignment.trigger, configuration: newConfig)
                     }
                     return Profile(id: oldProfile.id, name: oldProfile.name, assignments: newAssignments)
                 }
-                UserDefaults.standard.removeObject(forKey: oldProfilesKeyV5)
+                
                 if let encoded = try? JSONEncoder().encode(migratedProfiles) {
                     UserDefaults.standard.set(encoded, forKey: key)
                 }

@@ -327,7 +327,7 @@ struct MainSettingsView: View {
             case .addURL:
                 AddURLView(onSave: { url in startRecording(.url(url)) }, showingSheet: $showingSheet)
             case .addScript:
-                AddScriptView(onSave: { command, runsInTerminal in startRecording(.script(command: command, runsInTerminal: runsInTerminal)) }, showingSheet: $showingSheet)
+                AddScriptView(onSave: { name, command, runsInTerminal in startRecording(.script(name: name, command: command, runsInTerminal: runsInTerminal)) }, showingSheet: $showingSheet)
             case .addShortcut:
                 ShortcutPickerView(onSave: { name in startRecording(.shortcut(name: name)) }, showingSheet: $showingSheet)
             case .addApp:
@@ -347,13 +347,14 @@ struct MainSettingsView: View {
                     )
                 }
             case .editScript(let assignment):
-                if case .script(let command, let runsInTerminal) = assignment.configuration.target {
+                if case .script(let name, let command, let runsInTerminal) = assignment.configuration.target {
                     EditScriptView(
                         assignmentID: assignment.id,
+                        initialName: name,
                         initialCommand: command,
                         initialRunsInTerminal: runsInTerminal,
-                        onSave: { id, newCommand, newRunsInTerminal in
-                            settings.updateAssignmentContent(id: id, newTarget: .script(command: newCommand, runsInTerminal: newRunsInTerminal))
+                        onSave: { id, newName, newCommand, newRunsInTerminal in
+                            settings.updateAssignmentContent(id: id, newTarget: .script(name: newName, command: newCommand, runsInTerminal: newRunsInTerminal))
                         },
                         isPresented: Binding(
                             get: { self.showingSheet != nil },
@@ -1266,42 +1267,42 @@ var body: some View {
 }
 
 struct ShortcutTitle: View {
-let target: ShortcutTarget
-@ObservedObject var manager: AppHotKeyManager
-var body: some View {
-    switch target {
-    case .app(let bundleId): Text(manager.getAppName(for: bundleId) ?? "Unknown App").fontWeight(.semibold)
-    case .url(let urlString): Text(URL(string: urlString)?.host ?? "Link").fontWeight(.semibold)
-    case .file(let path): Text(URL(fileURLWithPath: path).lastPathComponent).fontWeight(.semibold)
-    case .script: Text("Shell Script").fontWeight(.semibold)
-    case .shortcut(let name): Text(name).fontWeight(.semibold)
+    let target: ShortcutTarget
+    @ObservedObject var manager: AppHotKeyManager
+    var body: some View {
+        switch target {
+        case .app(let bundleId): Text(manager.getAppName(for: bundleId) ?? "Unknown App").fontWeight(.semibold)
+        case .url(let urlString): Text(URL(string: urlString)?.host ?? "Link").fontWeight(.semibold)
+        case .file(let path): Text(URL(fileURLWithPath: path).lastPathComponent).fontWeight(.semibold)
+        case .script(let name, _, _): Text(name.isEmpty ? "Script" : name).fontWeight(.semibold)
+        case .shortcut(let name): Text(name).fontWeight(.semibold)
+        }
     }
-}
 }
 
 struct ShortcutSubtitle: View {
-let target: ShortcutTarget
-@Environment(\.colorScheme) private var colorScheme
+    let target: ShortcutTarget
+    @Environment(\.colorScheme) private var colorScheme
 
-var body: some View {
-    let fullText = {
-        switch target {
-        case .app(let bundleId): return bundleId
-        case .url(let urlString): return urlString
-        case .file(let path): return path
-        case .script(let command, _): return command
-        case .shortcut: return "macOS Shortcut"
-        }
-    }()
-    
-    HoverableTruncatedText(
-        text: fullText,
-        font: .caption,
-        truncationMode: .middle,
-        lineLimit: 1
-    )
-    .foregroundColor(AppTheme.secondaryTextColor(for: colorScheme))
-}
+    var body: some View {
+        let fullText = {
+            switch target {
+            case .app(let bundleId): return bundleId
+            case .url(let urlString): return urlString
+            case .file(let path): return path
+            case .script(_, let command, _): return command
+            case .shortcut: return "macOS Shortcut"
+            }
+        }()
+        
+        HoverableTruncatedText(
+            text: fullText,
+            font: .caption,
+            truncationMode: .middle,
+            lineLimit: 1
+        )
+        .foregroundColor(AppTheme.secondaryTextColor(for: colorScheme))
+    }
 }
 
 struct ListItemButtonStyle: ButtonStyle {
@@ -1502,10 +1503,11 @@ var body: some View {
 }
 
 struct AddScriptView: View {
-    var onSave: (String, Bool) -> Void
+    var onSave: (String, String, Bool) -> Void
     @Binding var showingSheet: SheetType?
     @EnvironmentObject var settings: SettingsManager
     @Environment(\.colorScheme) private var colorScheme
+    @State private var scriptName = ""
     @State private var command = ""
     @State private var runsInTerminal = false
     @FocusState private var isFocused: Bool
@@ -1515,10 +1517,9 @@ struct AddScriptView: View {
             Text("Add Script Shortcut")
                 .font(.title2.weight(.bold))
             
-            Text("Enter a shell command to execute.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-            
+            TextField("Script Name (e.g., 'Toggle Wi-Fi')", text: $scriptName)
+                .textFieldStyle(.roundedBorder)
+
             ZStack(alignment: .topLeading) {
                 TextEditor(text: $command)
                     .font(.system(.body, design: .monospaced))
@@ -1550,11 +1551,11 @@ struct AddScriptView: View {
                 Spacer()
                 
                 Button("Next") {
-                    onSave(command, runsInTerminal)
+                    onSave(scriptName, command, runsInTerminal)
                     showingSheet = nil
                 }
                 .buttonStyle(PillButtonStyle())
-                .disabled(command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(scriptName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
         .padding()
@@ -1570,18 +1571,20 @@ struct AddScriptView: View {
 
 struct EditScriptView: View {
     let assignmentID: UUID
-    var onSave: (UUID, String, Bool) -> Void
+    var onSave: (UUID, String, String, Bool) -> Void
     @Binding var isPresented: Bool
     @EnvironmentObject var settings: SettingsManager
     @Environment(\.colorScheme) private var colorScheme
+    @State private var name: String
     @State private var command: String
     @State private var runsInTerminal: Bool
     @FocusState private var isFocused: Bool
 
-    init(assignmentID: UUID, initialCommand: String, initialRunsInTerminal: Bool, onSave: @escaping (UUID, String, Bool) -> Void, isPresented: Binding<Bool>) {
+    init(assignmentID: UUID, initialName: String, initialCommand: String, initialRunsInTerminal: Bool, onSave: @escaping (UUID, String, String, Bool) -> Void, isPresented: Binding<Bool>) {
         self.assignmentID = assignmentID
         self.onSave = onSave
         self._isPresented = isPresented
+        _name = State(initialValue: initialName)
         _command = State(initialValue: initialCommand)
         _runsInTerminal = State(initialValue: initialRunsInTerminal)
     }
@@ -1589,7 +1592,10 @@ struct EditScriptView: View {
     var body: some View {
         VStack(spacing: 20) {
             Text("Edit Script Shortcut").font(.title2.weight(.bold))
-            Text("Enter a shell command to execute.").font(.caption).foregroundColor(.secondary)
+            
+            TextField("Script Name", text: $name)
+                .textFieldStyle(.roundedBorder)
+
             TextEditor(text: $command)
                 .font(.system(.body, design: .monospaced))
                 .scrollContentBackground(.hidden)
@@ -1602,9 +1608,9 @@ struct EditScriptView: View {
             HStack(spacing: 12) {
                 Button("Cancel", role: .cancel) { isPresented = false }.buttonStyle(PillButtonStyle())
                 Spacer()
-                Button("Save") { onSave(assignmentID, command, runsInTerminal); isPresented = false }
+                Button("Save") { onSave(assignmentID, name, command, runsInTerminal); isPresented = false }
                     .buttonStyle(PillButtonStyle())
-                    .disabled(command.isEmpty)
+                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
         .padding()

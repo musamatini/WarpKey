@@ -25,11 +25,11 @@ fileprivate enum ConflictableIdentifier {
     }
 }
 
-enum ShortcutTarget: Codable, Hashable {
+enum ShortcutTarget: Hashable {
     case app(bundleId: String)
     case url(String)
     case file(String)
-    case script(command: String, runsInTerminal: Bool)
+    case script(name: String, command: String, runsInTerminal: Bool)
     case shortcut(name: String)
 
     var category: ShortcutCategory {
@@ -42,6 +42,62 @@ enum ShortcutTarget: Codable, Hashable {
         }
     }
 }
+
+extension ShortcutTarget: Codable {
+    enum CodingKeys: String, CodingKey {
+        case app, url, file, script, shortcut
+    }
+
+    private enum AppKeys: String, CodingKey { case bundleId }
+    private enum ShortcutKeys: String, CodingKey { case name }
+    private enum ScriptKeys: String, CodingKey { case name, command, runsInTerminal }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        if container.contains(.app) {
+            let appContainer = try container.nestedContainer(keyedBy: AppKeys.self, forKey: .app)
+            self = .app(bundleId: try appContainer.decode(String.self, forKey: .bundleId))
+        } else if container.contains(.url) {
+            self = .url(try container.decode(String.self, forKey: .url))
+        } else if container.contains(.file) {
+            self = .file(try container.decode(String.self, forKey: .file))
+        } else if container.contains(.shortcut) {
+            let shortcutContainer = try container.nestedContainer(keyedBy: ShortcutKeys.self, forKey: .shortcut)
+            self = .shortcut(name: try shortcutContainer.decode(String.self, forKey: .name))
+        } else if container.contains(.script) {
+            let scriptContainer = try container.nestedContainer(keyedBy: ScriptKeys.self, forKey: .script)
+            let command = try scriptContainer.decode(String.self, forKey: .command)
+            let runsInTerminal = try scriptContainer.decode(Bool.self, forKey: .runsInTerminal)
+            let name = try scriptContainer.decodeIfPresent(String.self, forKey: .name) ?? "Script"
+            self = .script(name: name, command: command, runsInTerminal: runsInTerminal)
+        } else {
+            throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: container.codingPath, debugDescription: "Data appears to be corrupted or in an unknown format."))
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .app(let bundleId):
+            var appContainer = container.nestedContainer(keyedBy: AppKeys.self, forKey: .app)
+            try appContainer.encode(bundleId, forKey: .bundleId)
+        case .url(let urlString):
+            try container.encode(urlString, forKey: .url)
+        case .file(let path):
+            try container.encode(path, forKey: .file)
+        case .shortcut(let name):
+            var shortcutContainer = container.nestedContainer(keyedBy: ShortcutKeys.self, forKey: .shortcut)
+            try shortcutContainer.encode(name, forKey: .name)
+        case .script(let name, let command, let runsInTerminal):
+            var scriptContainer = container.nestedContainer(keyedBy: ScriptKeys.self, forKey: .script)
+            try scriptContainer.encode(name, forKey: .name)
+            try scriptContainer.encode(command, forKey: .command)
+            try scriptContainer.encode(runsInTerminal, forKey: .runsInTerminal)
+        }
+    }
+}
+
 
 struct ShortcutConfiguration: Codable, Hashable {
     var target: ShortcutTarget
@@ -649,7 +705,7 @@ class AppHotKeyManager: ObservableObject {
             case .app(let bundleId): DispatchQueue.main.async { self.handleAppActivation(bundleId: bundleId, behavior: config.behavior) }
             case .url(let urlString): DispatchQueue.main.async { if let url = URL(string: urlString) { NSWorkspace.shared.open(url) } }
             case .file(let path): DispatchQueue.main.async { NSWorkspace.shared.open(URL(fileURLWithPath: path)) }
-            case .script(let command, let runsInTerminal): DispatchQueue.global(qos: .userInitiated).async { self.runScript(command: command, runsInTerminal: runsInTerminal) }
+            case .script(_, let command, let runsInTerminal): DispatchQueue.global(qos: .userInitiated).async { self.runScript(command: command, runsInTerminal: runsInTerminal) }
             case .shortcut(let name): DispatchQueue.global(qos: .userInitiated).async { self.runShortcut(name: name) }
             }
             return true
@@ -883,7 +939,15 @@ class AppHotKeyManager: ObservableObject {
     
     private func runShortcut(name: String) { let task = Process(); task.executableURL = URL(fileURLWithPath: "/usr/bin/shortcuts"); task.arguments = ["run", name]; do { try task.run() } catch { print("Failed to run shortcut '\(name)': \(error)"); NotificationManager.shared.sendNotification(title: "Shortcut Failed", body: "Could not run '\(name)'.") } }
     
-    func getDisplayName(for target: ShortcutTarget) -> String? { switch target { case .app(let bundleId): return getAppName(for: bundleId); case .url(let urlString): return URL(string: urlString)?.host ?? "URL"; case .file(let path): return URL(fileURLWithPath: path).lastPathComponent; case .script: return "Script"; case .shortcut(let name): return name } }
+    func getDisplayName(for target: ShortcutTarget) -> String? {
+        switch target {
+        case .app(let bundleId): return getAppName(for: bundleId)
+        case .url(let urlString): return URL(string: urlString)?.host ?? "URL"
+        case .file(let path): return URL(fileURLWithPath: path).lastPathComponent
+        case .script(let name, _, _): return name.isEmpty ? "Script" : name
+        case .shortcut(let name): return name
+        }
+    }
     
     func getAppName(for bundleId: String) -> String? {
         if let cachedName = appNameCache[bundleId] {
