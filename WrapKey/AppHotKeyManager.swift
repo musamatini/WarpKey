@@ -331,18 +331,13 @@ class AppHotKeyManager: ObservableObject {
         }
 
         var shouldSuppressEvent = false
-        let nonModifierKey = isModifierKeyCode(processedKeyCode) ? nil : processedKeyCode
-        
-        if isKeyDownEvent, let triggerKey = nonModifierKey {
-            shouldSuppressEvent = handleKeyDown(for: triggerKey, with: activeKeys)
-        } else if type == .keyUp, let triggerKey = nonModifierKey {
-            shouldSuppressEvent = handleKeyUp(for: triggerKey, with: previousActiveKeys)
-        } else if type == .keyUp && activeKeys.isEmpty {
-            let comboId = previousActiveKeys.map { String($0) }.sorted().joined(separator: "-")
-            if pressTracker[comboId]?.holdTimer != nil {
-                pressTracker[comboId]?.holdTimer?.invalidate()
-                pressTracker[comboId] = nil
-            }
+        let isDown = activeKeys.count > previousActiveKeys.count
+        let isUp = activeKeys.count < previousActiveKeys.count
+
+        if isDown {
+            shouldSuppressEvent = handleKeyDown(for: 0, with: activeKeys)
+        } else if isUp {
+            shouldSuppressEvent = handleKeyUp(for: 0, with: previousActiveKeys)
         }
 
         if shouldSuppressEvent {
