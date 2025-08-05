@@ -108,14 +108,19 @@ struct MenuView: View {
     
     var body: some View {
         ZStack {
-            if !manager.hasAccessibilityPermissions {
-                PermissionsRestartRequiredView()
-            } else if !settings.hasCompletedOnboarding {
+            if !settings.hasCompletedOnboarding {
                 WelcomePage(
                     manager: manager,
-                    onGetStarted: { settings.hasCompletedOnboarding = true },
+                    onGetStarted: {
+                        if !manager.hasAccessibilityPermissions {
+                            AccessibilityManager.requestPermissions()
+                        }
+                        settings.hasCompletedOnboarding = true
+                    },
                     onGoToHelp: { settings.hasCompletedOnboarding = true; currentPage = .help }
                 )
+            } else if !manager.hasAccessibilityPermissions {
+                PermissionsRestartRequiredView()
             } else {
                 MainTabView(
                     manager: manager,
@@ -171,7 +176,7 @@ struct MainTabView: View {
                 switch selectedTab {
                 case .main:
                     MainSettingsView(manager: manager, showHelpPage: { selectedTab = .help }, showAppSettingsPage: { selectedTab = .appSettings })
-                        .transition(.asymmetric(insertion: .move(edge: .leading), removal: .identity))
+                        .transition(.asymmetric(insertion: .move(edge: .leading), removal: .move(edge: .leading)))
                 case .help:
                     HelpView(goBack: { selectedTab = .main })
                         .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)))
@@ -199,7 +204,7 @@ struct MainTabView: View {
             }
             .allowsHitTesting(false)
         }
-        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: selectedTab)
+        .animation(.interpolatingSpring(stiffness: 600, damping: 40), value: selectedTab)
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 if selectedTab == .help || selectedTab == .appSettings {
@@ -216,7 +221,7 @@ struct MainTabView: View {
                         if let appIcon = NSImage(named: NSImage.Name("AppIcon")) {
                             Image(nsImage: appIcon)
                                 .resizable().aspectRatio(contentMode: .fit)
-                                .frame(width: 24, height: 24).clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                                .frame(width: 24, height: 24).clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius - 1, style: .continuous))
                         }
                         Link(destination: githubURL) { Text("WrapKey").font(.headline).fontWeight(.semibold) }
                             .buttonStyle(.plain)
@@ -382,15 +387,32 @@ struct AppSettingsView: View {
                         .font(.callout)
                         .foregroundColor(AppTheme.secondaryTextColor(for: colorScheme))
                     
-                    PillCard(content: {
-                        HStack {
-                            Text("Cheatsheet Hotkey")
-                            Spacer()
-                            Text(manager.shortcutKeyCombinationString(for: settings.cheatsheetShortcut.keys))
-                                        .font(.system(.body, design: .monospaced))
+                    VStack(spacing: 8) {
+                        PillCard(content: {
+                            HStack {
+                                Text("Cheatsheet Hotkey")
+                                Spacer()
+                                Text(manager.shortcutKeyCombinationString(for: settings.cheatsheetShortcut.keys))
+                                            .font(.system(.body, design: .monospaced))
+                            }
+                        }, cornerRadius: AppTheme.cornerRadius)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous)
+                                .stroke(manager.isCheatsheetConflicting ? Color.yellow : Color.clear, lineWidth: 1.5)
+                        )
+
+                        if manager.isCheatsheetConflicting {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.yellow)
+                                Text("This hotkey conflicts with another shortcut.").font(.caption).fontWeight(.semibold)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 8).padding(.vertical, 4).background(Color.yellow.opacity(0.2)).cornerRadius(AppTheme.cornerRadius)
+                            .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .top)))
                         }
-                    }, cornerRadius: AppTheme.cornerRadius)
-                    
+                    }
+                    .animation(.default, value: manager.isCheatsheetConflicting)
+
                     HStack(spacing: 10) {
                         Button("Set Shortcut") { manager.startRecording(for: .cheatsheet) }
                         Button("Clear") { settings.cheatsheetShortcut = SpecialShortcut(keys: [], trigger: .press) }
@@ -404,13 +426,30 @@ struct AppSettingsView: View {
                         .font(.callout)
                         .foregroundColor(AppTheme.secondaryTextColor(for: colorScheme))
 
-                    PillCard(content: {
-                        HStack {
-                            Text("Quick Assign Hotkey")
-                            Spacer()
-                            SpecialShortcutDisplay(shortcut: settings.appAssigningShortcut, manager: manager)
+                    VStack(spacing: 8) {
+                        PillCard(content: {
+                            HStack {
+                                Text("Quick Assign Hotkey")
+                                Spacer()
+                                SpecialShortcutDisplay(shortcut: settings.appAssigningShortcut, manager: manager)
+                            }
+                        }, cornerRadius: AppTheme.cornerRadius)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous)
+                                .stroke(manager.isQuickAssignConflicting ? Color.yellow : Color.clear, lineWidth: 1.5)
+                        )
+
+                        if manager.isQuickAssignConflicting {
+                             HStack {
+                                Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.yellow)
+                                Text("This hotkey conflicts with another shortcut.").font(.caption).fontWeight(.semibold)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 8).padding(.vertical, 4).background(Color.yellow.opacity(0.2)).cornerRadius(AppTheme.cornerRadius)
+                            .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .top)))
                         }
-                    }, cornerRadius: AppTheme.cornerRadius)
+                    }
+                    .animation(.default, value: manager.isQuickAssignConflicting)
 
                     HStack(spacing: 10) {
                         Button("Set Shortcut") { manager.startRecording(for: .quickAssign) }
@@ -1003,7 +1042,7 @@ struct AssignmentRow: View {
                     Text("Conflict detected. This hotkey & trigger combination is used multiple times.").font(.caption).fontWeight(.semibold).lineLimit(2)
                     Spacer()
                 }
-                .padding(.horizontal, 8).padding(.vertical, 4).background(Color.yellow.opacity(0.2)).cornerRadius(6)
+                .padding(.horizontal, 8).padding(.vertical, 4).background(Color.yellow.opacity(0.2)).cornerRadius(AppTheme.cornerRadius)
             }
             
             if case .app = assignment.configuration.target {
@@ -1119,7 +1158,7 @@ struct ShortcutRecordingView: View {
                             .padding(.vertical, 8)
                             .background(AppTheme.pillBackgroundColor(for: colorScheme, theme: settings.appTheme))
                             .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
-                            .cornerRadius(8)
+                            .cornerRadius(AppTheme.cornerRadius)
                     }
                 }
             }
@@ -1143,13 +1182,13 @@ struct ShortcutRecordingView: View {
                 Button(action: { manager.cancelRecording() }) {
                     Text("Cancel").fontWeight(.semibold).frame(maxWidth: .infinity).padding(10)
                         .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
-                        .background(AppTheme.pillBackgroundColor(for: colorScheme, theme: settings.appTheme)).cornerRadius(8)
+                        .background(AppTheme.pillBackgroundColor(for: colorScheme, theme: settings.appTheme)).cornerRadius(AppTheme.cornerRadius)
                 }.buttonStyle(.plain)
                 
                 Button(action: { manager.clearRecordedShortcut() }) {
                     Text("Blank").fontWeight(.semibold).frame(maxWidth: .infinity).padding(10)
                         .foregroundColor(AppTheme.adaptiveTextColor(on: AppTheme.accentColor1(for: colorScheme, theme: settings.appTheme)))
-                        .background(AppTheme.accentColor1(for: colorScheme, theme: settings.appTheme).opacity(0.8)).cornerRadius(8)
+                        .background(AppTheme.accentColor1(for: colorScheme, theme: settings.appTheme).opacity(0.8)).cornerRadius(AppTheme.cornerRadius)
                 }
                 .buttonStyle(.plain)
                 .opacity(isRecordingForAppAssigning ? 0 : 1)
@@ -1159,7 +1198,7 @@ struct ShortcutRecordingView: View {
                     let accentColor = AppTheme.accentColor2(for: colorScheme, theme: settings.appTheme)
                     Text("Done").fontWeight(.semibold).frame(maxWidth: .infinity).padding(10)
                         .foregroundColor(AppTheme.adaptiveTextColor(on: accentColor))
-                        .background(accentColor).cornerRadius(8)
+                        .background(accentColor).cornerRadius(AppTheme.cornerRadius)
                 }.buttonStyle(.plain).disabled(manager.recordedKeys.isEmpty)
             }
         }
@@ -1186,7 +1225,7 @@ struct ShortcutIcon: View {
             case .script: Image(systemName: "terminal").font(.system(size: 28)).foregroundColor(AppTheme.accentColor2(for: colorScheme, theme: settings.appTheme))
             case .shortcut: Image(systemName: "square.stack.3d.up.fill").font(.system(size: 28)).foregroundColor(AppTheme.accentColor2(for: colorScheme, theme: settings.appTheme))
             }
-        }.clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }.clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius - 1, style: .continuous))
     }
 }
 
@@ -1237,7 +1276,7 @@ struct ListItemButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous)
                     .fill(isHovering || configuration.isPressed ? AppTheme.pillBackgroundColor(for: colorScheme, theme: settings.appTheme) : Color.clear)
                     .animation(.easeOut(duration: 0.1), value: isHovering)
             )
@@ -1277,7 +1316,7 @@ struct AddAppView: View {
             }
             .padding(.horizontal, 10).padding(.vertical, 8)
             .background(AppTheme.pillBackgroundColor(for: colorScheme, theme: settings.appTheme).opacity(0.5))
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
             .padding(.horizontal)
 
             if isLoading {
@@ -1449,7 +1488,7 @@ struct AddScriptView: View {
                     .font(.system(.body, design: .monospaced))
                     .scrollContentBackground(.hidden)
                     .background(AppTheme.pillBackgroundColor(for: colorScheme, theme: settings.appTheme).opacity(0.5))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
                     .frame(height: 100)
                     .focused($isFocused)
                 
@@ -1519,7 +1558,7 @@ struct EditScriptView: View {
                 .font(.system(.body, design: .monospaced))
                 .scrollContentBackground(.hidden)
                 .background(AppTheme.pillBackgroundColor(for: colorScheme, theme: settings.appTheme).opacity(0.5))
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
                 .frame(height: 100)
                 .focused($isFocused)
 
@@ -1570,7 +1609,7 @@ struct ShortcutPickerView: View {
             }
             .padding(.horizontal, 10).padding(.vertical, 8)
             .background(AppTheme.pillBackgroundColor(for: colorScheme, theme: settings.appTheme).opacity(0.5))
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
             .padding(.horizontal)
 
             if isLoading {

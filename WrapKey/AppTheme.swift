@@ -29,7 +29,7 @@ enum Theme: String, Codable, CaseIterable, Identifiable {
 // MARK: - AppTheme
 struct AppTheme {
     // MARK: - Layout
-    static let cornerRadius: CGFloat = 7
+    static let cornerRadius: CGFloat = 8
 
     // MARK: - Dynamic Color Providers
     static func accentColor1(for scheme: ColorScheme, theme: Theme) -> Color {

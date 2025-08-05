@@ -12,6 +12,20 @@ fileprivate enum InternalShortcutID: String {
     case quickAssign = "dev.wrapkey.internal.quickassign"
 }
 
+fileprivate enum ConflictableIdentifier {
+    case assignment(id: UUID)
+    case cheatsheet
+    case quickAssign
+
+    var stringValue: String {
+        switch self {
+        case .assignment(let id): return id.uuidString
+        case .cheatsheet: return "internal_cheatsheet"
+        case .quickAssign: return "internal_quickassign"
+        }
+    }
+}
+
 enum ShortcutTarget: Codable, Hashable {
     case app(bundleId: String)
     case url(String)
@@ -121,7 +135,9 @@ class AppHotKeyManager: ObservableObject {
     @Published var recordedKeys: [ShortcutKey] = []
     @Published var recordedTriggerType: ShortcutTriggerType = .press
     @Published var conflictingAssignmentIDs: Set<UUID> = []
-    
+    @Published var isCheatsheetConflicting = false
+    @Published var isQuickAssignConflicting = false
+
     private var appNameCache: [String: String] = [:]
     private var appIconCache: [String: NSImage] = [:]
     private var activeNormalKeys = Set<CGKeyCode>()
@@ -665,7 +681,7 @@ class AppHotKeyManager: ObservableObject {
                  DispatchQueue.main.async { self.cancelRecording() }
             } else {
                 DispatchQueue.main.async {
-                    guard let frontmostApp = NSWorkspace.shared.frontmostApplication, let id = frontmostApp.bundleIdentifier, id != Bundle.main.bundleIdentifier else { return }
+                    guard let frontmostApp = NSWorkspace.shared.frontmostApplication, let id = frontmostApp.bundleIdentifier else { return }
                     self.startRecording(for: .appAssigning(target: .app(bundleId: id)))
                     NotificationCenter.default.post(name: .showAssigningOverlay, object: nil)
                 }
@@ -823,17 +839,39 @@ class AppHotKeyManager: ObservableObject {
     }
 
     // MARK: - Utility Functions
+    private func hotkeyIdentifier(for keys: [ShortcutKey], trigger: ShortcutTriggerType) -> String {
+        let sortedKeyCodes = keys.map { String($0.keyCode) }.sorted()
+        return sortedKeyCodes.joined(separator: "-") + "-\(trigger.rawValue)"
+    }
 
     private func checkForConflicts() {
-        var hotkeys: [String: [UUID]] = [:]
-        for assignment in settings.currentProfile.wrappedValue.assignments {
-            if assignment.shortcut.isEmpty { continue }
-            let sortedKeyCodes = assignment.shortcut.map { String($0.keyCode) }.sorted()
-            let hotkeyID = sortedKeyCodes.joined(separator: "-") + "-\(assignment.trigger.rawValue)"
-            hotkeys[hotkeyID, default: []].append(assignment.id)
+        var hotkeys: [String: [ConflictableIdentifier]] = [:]
+        
+        for assignment in settings.currentProfile.wrappedValue.assignments where !assignment.shortcut.isEmpty {
+            let id = hotkeyIdentifier(for: assignment.shortcut, trigger: assignment.trigger)
+            hotkeys[id, default: []].append(.assignment(id: assignment.id))
         }
-        let currentConflicts = hotkeys.values.filter { $0.count > 1 }.flatMap { $0 }
-        self.conflictingAssignmentIDs = Set(currentConflicts)
+
+        if !settings.cheatsheetShortcut.keys.isEmpty {
+            let id = hotkeyIdentifier(for: settings.cheatsheetShortcut.keys, trigger: settings.cheatsheetShortcut.trigger)
+            hotkeys[id, default: []].append(.cheatsheet)
+        }
+        
+        if !settings.appAssigningShortcut.keys.isEmpty {
+            let id = hotkeyIdentifier(for: settings.appAssigningShortcut.keys, trigger: settings.appAssigningShortcut.trigger)
+            hotkeys[id, default: []].append(.quickAssign)
+        }
+        
+        var allConflictingIds = Set<String>()
+        for (_, identifiers) in hotkeys where identifiers.count > 1 {
+            for identifier in identifiers {
+                allConflictingIds.insert(identifier.stringValue)
+            }
+        }
+
+        self.conflictingAssignmentIDs = Set(allConflictingIds.compactMap { UUID(uuidString: $0) })
+        self.isCheatsheetConflicting = allConflictingIds.contains(ConflictableIdentifier.cheatsheet.stringValue)
+        self.isQuickAssignConflicting = allConflictingIds.contains(ConflictableIdentifier.quickAssign.stringValue)
     }
     
     private func runScript(command: String, runsInTerminal: Bool) { if runsInTerminal { let appleScriptSource = "tell application \"Terminal\"\nactivate\ndo script \"\(command.replacingOccurrences(of: "\"", with: "\\\""))\"\nend tell"; var error: NSDictionary?; if let script = NSAppleScript(source: appleScriptSource) { script.executeAndReturnError(&error); if let err = error { print("AppleScript Error: \(err)") } } } else { let task = Process(); task.executableURL = URL(fileURLWithPath: "/bin/zsh"); task.arguments = ["-c", command]; do { try task.run() } catch { print("Failed to run script in background: \(error)") } } }

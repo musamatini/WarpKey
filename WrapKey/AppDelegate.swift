@@ -35,9 +35,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         settings.setupAppearanceMonitoring()
         UNUserNotificationCenter.current().delegate = self
         
-        updaterController.updater.checkForUpdatesInBackground()
+        if updaterViewModel.automaticallyChecksForUpdates {
+            updaterController.updater.checkForUpdatesInBackground()
+        }
 
-        if CommandLine.arguments.contains("--show-window-on-launch") {
+        if !settings.hasCompletedOnboarding || CommandLine.arguments.contains("--show-window-on-launch") {
             handleOpenMainWindow()
         }
 
@@ -60,7 +62,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                 }
             }
         
-        NSApp.setActivationPolicy(.accessory)
+        if settings.hasCompletedOnboarding {
+             NSApp.setActivationPolicy(.accessory)
+        }
         
         NotificationCenter.default.addObserver(self, selector: #selector(handleOpenMainWindow), name: .openMainWindow, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleShortcutActivation), name: .shortcutActivated, object: nil)

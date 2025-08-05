@@ -165,7 +165,6 @@ struct CustomSegmentedPicker<T: Hashable & CaseIterable & RawRepresentable>: Vie
     @Binding var selection: T
     private var namespace: Namespace.ID
     private let containerPadding: CGFloat = 4
-    private let cornerRadius: CGFloat = AppTheme.cornerRadius
     
     init(title: String, selection: Binding<T>, in namespace: Namespace.ID) {
         self.title = title
@@ -188,7 +187,7 @@ struct CustomSegmentedPicker<T: Hashable & CaseIterable & RawRepresentable>: Vie
                     .background {
                         ZStack {
                             if isSelected {
-                                RoundedRectangle(cornerRadius: cornerRadius - containerPadding, style: .continuous)
+                                RoundedRectangle(cornerRadius: AppTheme.cornerRadius - containerPadding, style: .continuous)
                                     .fill(accentColor)
                                     .matchedGeometryEffect(id: "picker-highlight", in: namespace)
                             }
@@ -204,7 +203,7 @@ struct CustomSegmentedPicker<T: Hashable & CaseIterable & RawRepresentable>: Vie
         }
         .padding(containerPadding)
         .background { AppTheme.pickerBackgroundColor(for: colorScheme, theme: settings.appTheme) }
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
     }
 }
 
@@ -239,7 +238,7 @@ struct CustomSwitchToggleStyle: ToggleStyle {
             configuration.label
             Spacer()
             ZStack {
-                RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: AppTheme.cornerRadius * 1.5, style: .continuous)
                     .frame(width: 44, height: 26)
                     .foregroundColor(configuration.isOn ? AppTheme.accentColor1(for: colorScheme, theme: settings.appTheme) : AppTheme.pillBackgroundColor(for: colorScheme, theme: settings.appTheme))
                 RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous)

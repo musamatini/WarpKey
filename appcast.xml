@@ -6,6 +6,28 @@
     <description>Most recent changes with links to updates.</description>
     <language>en</language>
     <item>
+      <title>Version 1.1.1</title>
+      <pubDate>Thu, 5 Aug 2025 11:40:00 +0300</pubDate>
+      <description>
+        <![CDATA[
+            <h3>What's New in WrapKey</h3>
+            <ul>
+                <li><strong>Bug Fix:</strong> Made the quick assign and cheasheet shortcuts give a warning if conflicting with any other shortcuts.</li>
+                <li><strong>Bug Fix:</strong> The quick assign feature werent working on the WrapKey app itself.</li>
+                <li><strong>Bug Fix:</strong> Made the welcome window apear before the accessibility permssion widnow on first start.</li>
+                <li><strong>Improvement:</strong> Made animations look better! </li>
+            </ul>
+        ]]>
+      </description>
+      <enclosure
+        url="https://github.com/musamatini/WrapKey/releases/download/v1.1.1/WrapKey-Universal-Stable-v1.1.1.zip"
+        sparkle:version="9"
+        sparkle:shortVersionString="1.1.1"
+        length="3247292"
+        type="application/octet-stream"
+        sparkle:edSignature="uyLRwV3UaJG+SuRf2rSEPtkzsx5wCDVLHZvd1+DHB9Hfw88lyEFmL5OwiEFcsL/Rt6/KiEf//0o1TsEF3LOtCA==" />
+    </item>
+    <item>
       <title>Version 1.1.0</title>
       <pubDate>Thu, 5 Aug 2025 00:40:00 +0300</pubDate>
       <description>
