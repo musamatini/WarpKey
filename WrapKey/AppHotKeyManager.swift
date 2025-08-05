@@ -723,20 +723,7 @@ class AppHotKeyManager: ObservableObject {
                 if self.activationsInProgress.contains(bundleId) { return }
                 self.activationsInProgress.insert(bundleId)
                 defer { DispatchQueue.main.async { self.activationsInProgress.remove(bundleId) } }
-                
-                if bundleId == "com.apple.finder" {
-                    let appElement = AXUIElementCreateApplication(targetApp.processIdentifier)
-                    var windows: CFTypeRef?
-                    if AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windows) == .success, let windowList = windows as? [AXUIElement],
-                       !windowList.contains(where: { w -> Bool in
-                           var sr: CFTypeRef?; AXUIElementCopyAttributeValue(w, kAXSubroleAttribute as CFString, &sr)
-                           return (sr as? String) == kAXStandardWindowSubrole as String
-                       }) {
-                        NSWorkspace.shared.open(FileManager.default.homeDirectoryForCurrentUser)
-                        return
-                    }
-                }
-                
+                                
                 switch behavior {
                 case .activateOrHide: self.activateOrHide(app: targetApp)
                 case .cycleWindows: self.cycleWindows(for: targetApp)
@@ -866,7 +853,33 @@ class AppHotKeyManager: ObservableObject {
         self.isQuickAssignConflicting = allConflictingIds.contains(ConflictableIdentifier.quickAssign.stringValue)
     }
     
-    private func runScript(command: String, runsInTerminal: Bool) { if runsInTerminal { let appleScriptSource = "tell application \"Terminal\"\nactivate\ndo script \"\(command.replacingOccurrences(of: "\"", with: "\\\""))\"\nend tell"; var error: NSDictionary?; if let script = NSAppleScript(source: appleScriptSource) { script.executeAndReturnError(&error); if let err = error { print("AppleScript Error: \(err)") } } } else { let task = Process(); task.executableURL = URL(fileURLWithPath: "/bin/zsh"); task.arguments = ["-c", command]; do { try task.run() } catch { print("Failed to run script in background: \(error)") } } }
+    private func runScript(command: String, runsInTerminal: Bool) {
+        if runsInTerminal {
+            let escapedCommand = command.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+            let appleScriptSource = """
+            tell application "Terminal"
+            activate
+            do script "\(escapedCommand)"
+            end tell
+            """
+            var error: NSDictionary?
+            if let script = NSAppleScript(source: appleScriptSource) {
+                script.executeAndReturnError(&error)
+                if let err = error {
+                    print("AppleScript Error: \(err)")
+                }
+            }
+        } else {
+            let task = Process()
+            task.executableURL = URL(fileURLWithPath: "/bin/zsh")
+            task.arguments = ["-c", command]
+            do {
+                try task.run()
+            } catch {
+                print("Failed to run script in background: \(error)")
+            }
+        }
+    }
     
     private func runShortcut(name: String) { let task = Process(); task.executableURL = URL(fileURLWithPath: "/usr/bin/shortcuts"); task.arguments = ["run", name]; do { try task.run() } catch { print("Failed to run shortcut '\(name)': \(error)"); NotificationManager.shared.sendNotification(title: "Shortcut Failed", body: "Could not run '\(name)'.") } }
     

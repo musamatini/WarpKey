@@ -67,6 +67,22 @@ struct RootView: View {
     }
 }
 
+struct AppCommands: Commands {
+
+    private func showAppSettings() {
+        NSApp.sendAction(#selector(AppDelegate.showPreferences), to: nil, from: nil)
+    }
+
+    var body: some Commands {
+        CommandGroup(replacing: .appSettings) {
+            Button("Settings...") {
+                showAppSettings()
+            }
+        }
+    }
+}
+
+
 @main
 struct WrapKeyApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
@@ -74,5 +90,9 @@ struct WrapKeyApp: App {
     var body: some Scene {
         Settings {
         }
+        .commands {
+            AppCommands()
+        }
     }
+    
 }

@@ -8,6 +8,7 @@ import Carbon.HIToolbox
 extension Notification.Name {
     static let openMainWindow = Notification.Name("openMainWindow")
     static let goToHelpPageInMainWindow = Notification.Name("goToHelpPageInMainWindow")
+    static let goToSettingsPageInMainWindow = Notification.Name("goToSettingsPageInMainWindow")
     static let shortcutActivated = Notification.Name("shortcutActivated")
     static let requestAppRestart = Notification.Name("requestAppRestart")
     static let showCheatsheet = Notification.Name("showCheatsheet")

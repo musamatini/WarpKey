@@ -60,6 +60,7 @@ struct HoverableTruncatedText: View {
     @State private var idealWidth: CGFloat = 0
     @State private var actualWidth: CGFloat = 0
     @State private var showPopover = false
+    @State private var isHovering = false
 
     private var isTruncated: Bool {
         idealWidth > actualWidth + 1
@@ -78,22 +79,38 @@ struct HoverableTruncatedText: View {
                     .readSize { size in idealWidth = size.width }
                     .hidden()
             )
+            .frame(height: 20)
             .onHover { hovering in
-                if isTruncated {
-                    showPopover = hovering
+                guard isTruncated else { return }
+                
+                isHovering = hovering
+                
+                if hovering {
+                    // Add a small delay to prevent flickering
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        if isHovering {
+                            showPopover = true
+                        }
+                    }
+                } else {
+                    showPopover = false
                 }
             }
             .popover(isPresented: $showPopover, arrowEdge: .bottom) {
-                Text(text)
-                    .font(.callout)
-                    .padding(12)
-                    .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
-                    .background(BlurredBackgroundView())
-                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
+                ScrollView {
+                    Text(text)
+                        .font(.callout)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .multilineTextAlignment(.leading)
+                        .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
+                        .padding(12)
+                }
+                .frame(maxWidth: 450, maxHeight: 200)
+                .background(BlurredBackgroundView())
             }
     }
 }
-
 
 struct VisualEffectBlur: NSViewRepresentable {
     @Environment(\.colorScheme) private var colorScheme
@@ -128,7 +145,6 @@ struct HelpSectionBackground: View {
         }
     }
 }
-
 
 struct HelpSection<Content: View>: View {
     @Environment(\.colorScheme) private var colorScheme

@@ -6,6 +6,26 @@
     <description>Most recent changes with links to updates.</description>
     <language>en</language>
     <item>
+      <title>Version 1.1.4</title>
+      <pubDate>Thu, 6 Aug 2025 00:20:00 +0300</pubDate>
+      <description>
+        <![CDATA[
+            <h3>What's New in WrapKey</h3>
+            <ul>
+                <li><strong>Bug Fix:</strong>Fixed the settings button in the menubar was not oppening the settings menu.</li>
+                <li><strong>Bug Fix:</strong>Fixed finder opens from mac home folder instead of what the user set in finder settings as defualt start folder.</li>
+            </ul>
+        ]]>
+      </description>
+      <enclosure
+        url="https://github.com/musamatini/WrapKey/releases/download/v1.1.3/WrapKey-Universal-Stable-v1.1.3.zip"
+        sparkle:version="12"
+        sparkle:shortVersionString="1.1.4"
+        length="3247585"
+        type="application/octet-stream"
+        sparkle:edSignature="4b2139xIRJg9Np80kwJkBJusTbzGRQt6Qdc7Mf06gLSPWYozbGgnBKOKYU2Xtp3UrRzvtsXPFmFstArhB2GLDw==" />
+    </item>
+    <item>
       <title>Version 1.1.3</title>
       <pubDate>Thu, 5 Aug 2025 18:40:00 +0300</pubDate>
       <description>

@@ -135,7 +135,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         mainWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
-    
+    @objc func showPreferences(_ sender: Any?) {
+        handleOpenMainWindow()
+        NotificationCenter.default.post(name: .goToSettingsPageInMainWindow, object: nil)
+    }
     @objc func handleRestartRequest() {
         guard let appPath = Bundle.main.bundlePath as String? else {
             print("Could not determine application path for restart.")
