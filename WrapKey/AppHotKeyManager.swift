@@ -6,7 +6,6 @@ import Combine
 import Carbon.HIToolbox
 import ApplicationServices
 
-// MARK: - Enums and Structs
 fileprivate enum InternalShortcutID: String {
     case cheatsheet = "dev.wrapkey.internal.cheatsheet"
     case quickAssign = "dev.wrapkey.internal.quickassign"
@@ -128,7 +127,6 @@ enum RecordingMode: Equatable {
     case appAssigning(target: ShortcutTarget)
 }
 
-// MARK: - Main Class
 class AppHotKeyManager: ObservableObject {
     @Published var hasAccessibilityPermissions: Bool
     @Published var recordingState: RecordingMode? = nil
@@ -196,8 +194,6 @@ class AppHotKeyManager: ObservableObject {
         settingsCancellable?.cancel()
         NotificationCenter.default.removeObserver(self)
     }
-    
-    // MARK: - Monitoring & Permissions
     
     func startPermissionMonitoring() {
         stopPermissionMonitoring()
@@ -356,8 +352,6 @@ class AppHotKeyManager: ObservableObject {
         return Unmanaged.passUnretained(event)
     }
 
-    // MARK: - Hotkey Logic
-
     private func updateHotkeyCache() {
         hotkeyCache.removeAll()
         var allAssignments = settings.currentProfile.wrappedValue.assignments
@@ -386,6 +380,7 @@ class AppHotKeyManager: ObservableObject {
 
         if !cheatsheetComboId.isEmpty && comboId == cheatsheetComboId {
             DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .cheatsheetKeyDown, object: nil)
                 NotificationCenter.default.post(name: .showCheatsheet, object: nil)
             }
             return true
@@ -423,6 +418,7 @@ class AppHotKeyManager: ObservableObject {
 
         if !cheatsheetComboId.isEmpty && comboId == cheatsheetComboId {
             DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .cheatsheetKeyUp, object: nil)
                 NotificationCenter.default.post(name: .hideCheatsheet, object: nil)
             }
             return true
@@ -506,8 +502,6 @@ class AppHotKeyManager: ObservableObject {
         return true
     }
 
-    // MARK: - Recording Logic
-    
     private func handleRecording() {
         DispatchQueue.main.async {
             let currentActiveKeys = self.activeKeys
@@ -651,8 +645,6 @@ class AppHotKeyManager: ObservableObject {
         closeRecorder()
     }
 
-    // MARK: - Activation Logic
-
     func handleActivation(assignment: Assignment) -> Bool {
         guard let bundleId = assignment.configuration.target.bundleId else {
             DispatchQueue.main.async { NotificationCenter.default.post(name: .shortcutActivated, object: nil) }
@@ -677,14 +669,20 @@ class AppHotKeyManager: ObservableObject {
             }
             return true
         case .quickAssign:
-            if activeKeys.isEmpty {
-                 DispatchQueue.main.async { self.cancelRecording() }
-            } else {
-                DispatchQueue.main.async {
-                    guard let frontmostApp = NSWorkspace.shared.frontmostApplication, let id = frontmostApp.bundleIdentifier else { return }
-                    self.startRecording(for: .appAssigning(target: .app(bundleId: id)))
-                    NotificationCenter.default.post(name: .showAssigningOverlay, object: nil)
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .shortcutActivated, object: nil)
+                if self.recordingState != nil {
+                    self.cancelRecording()
+                    return
                 }
+                
+                guard let frontmostApp = NSWorkspace.shared.frontmostApplication,
+                      let id = frontmostApp.bundleIdentifier else {
+                    return
+                }
+                
+                self.startRecording(for: .appAssigning(target: .app(bundleId: id)))
+                NotificationCenter.default.post(name: .showAssigningOverlay, object: nil)
             }
             return true
         case .none:
@@ -838,7 +836,6 @@ class AppHotKeyManager: ObservableObject {
         NSWorkspace.shared.openApplication(at: appURL, configuration: config)
     }
 
-    // MARK: - Utility Functions
     private func hotkeyIdentifier(for keys: [ShortcutKey], trigger: ShortcutTriggerType) -> String {
         let sortedKeyCodes = keys.map { String($0.keyCode) }.sorted()
         return sortedKeyCodes.joined(separator: "-") + "-\(trigger.rawValue)"

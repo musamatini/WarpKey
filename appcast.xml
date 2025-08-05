@@ -6,6 +6,25 @@
     <description>Most recent changes with links to updates.</description>
     <language>en</language>
     <item>
+      <title>Version 1.1.2</title>
+      <pubDate>Thu, 5 Aug 2025 17:40:00 +0300</pubDate>
+      <description>
+        <![CDATA[
+            <h3>What's New in WrapKey</h3>
+            <ul>
+                <li><strong>Bug Fix:</strong>Fixed a bug where the recording overlay for quick assign dosent appear.</li>
+            </ul>
+        ]]>
+      </description>
+      <enclosure
+        url="https://github.com/musamatini/WrapKey/releases/download/v1.1.2/WrapKey-Universal-Stable-v1.1.2.zip"
+        sparkle:version="10"
+        sparkle:shortVersionString="1.1.2"
+        length="3248754"
+        type="application/octet-stream"
+        sparkle:edSignature="I3FoulH6e7FL1MWH3pM8qr3o9bGTywxqXiKdi8l5fLTjqsU5ITFDsfr4tvz7ZPTMDuuCgrSQhxPVld1A8a23DQ==" />
+    </item>
+    <item>
       <title>Version 1.1.1</title>
       <pubDate>Thu, 5 Aug 2025 11:40:00 +0300</pubDate>
       <description>

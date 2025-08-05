@@ -15,6 +15,8 @@ extension Notification.Name {
     static let showAssigningOverlay = Notification.Name("showAssigningOverlay")
     static let hideAssigningOverlay = Notification.Name("hideAssigningOverlay")
     static let accessibilityPermissionsLost = Notification.Name("accessibilityPermissionsLost")
+    static let cheatsheetKeyDown = Notification.Name("cheatsheetKeyDown")
+    static let cheatsheetKeyUp = Notification.Name("cheatsheetKeyUp")
 }
 
 struct AccessibilityManager {

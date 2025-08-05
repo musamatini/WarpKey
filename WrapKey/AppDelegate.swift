@@ -76,6 +76,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         NotificationCenter.default.addObserver(forName: .hideCheatsheet, object: nil, queue: .main) { [weak self] _ in self?.hideCheatsheet() }
         NotificationCenter.default.addObserver(forName: .showAssigningOverlay, object: nil, queue: .main) { [weak self] _ in self?.showAssigningOverlay() }
         NotificationCenter.default.addObserver(forName: .hideAssigningOverlay, object: nil, queue: .main) { [weak self] _ in self?.hideAssigningOverlay() }
+        NotificationCenter.default.addObserver(forName: .cheatsheetKeyDown, object: nil, queue: .main) { [weak self] _ in self?.handleCheatsheetKeyDown() }
+        NotificationCenter.default.addObserver(forName: .cheatsheetKeyUp, object: nil, queue: .main) { [weak self] _ in self?.handleCheatsheetKeyUp() }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -234,6 +236,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             button.layer?.filters = nil
         }
+    }
+    
+    @objc private func handleCheatsheetKeyDown() {
+        guard let button = statusItem?.button else { return }
+        if let filter = CIFilter(name: "CIColorInvert") {
+            button.layer?.filters = [filter]
+        }
+    }
+
+    @objc private func handleCheatsheetKeyUp() {
+        guard let button = statusItem?.button else { return }
+        button.layer?.filters = nil
     }
 
     @objc private func handleAppDidBecomeActive() {

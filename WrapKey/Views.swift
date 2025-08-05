@@ -1163,7 +1163,6 @@ struct ShortcutRecordingView: View {
                 }
             }
             .frame(minHeight: 40)
-            .animation(.spring(), value: manager.recordedKeys)
             
             if showTriggerPicker {
                 Picker("Trigger Type:", selection: $manager.recordedTriggerType) {
@@ -1206,7 +1205,6 @@ struct ShortcutRecordingView: View {
         .frame(width: 400, height: viewHeight)
         .background(VisualEffectBlur().clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous)))
         .shadow(radius: 20)
-        .animation(.default, value: manager.recordingState != nil)
     }
 }
 
