@@ -26,11 +26,11 @@ fileprivate enum ConflictableIdentifier {
 }
 
 enum ShortcutTarget: Hashable {
-    case app(bundleId: String)
-    case url(String)
-    case file(String)
+    case app(name: String, bundleId: String)
+    case url(name: String, address: String)
+    case file(name: String, path: String)
     case script(name: String, command: String, runsInTerminal: Bool)
-    case shortcut(name: String)
+    case shortcut(name: String, executionName: String)
 
     var category: ShortcutCategory {
         switch self {
@@ -41,63 +41,89 @@ enum ShortcutTarget: Hashable {
         case .shortcut: .shortcut
         }
     }
+
+    var displayName: String {
+        switch self {
+        case .app(let name, _), .url(let name, _), .file(let name, _), .script(let name, _, _), .shortcut(let name, _):
+            return name
+        }
+    }
+    
+    func getIcon(using manager: AppHotKeyManager, size: NSSize = NSSize(width: 18, height: 18)) -> NSImage? {
+        let image: NSImage?
+        switch self {
+        case .app(_, let bundleId):
+            image = manager.getAppIcon(for: bundleId)
+        case .url:
+            image = NSImage(systemSymbolName: "globe", accessibilityDescription: "URL")
+        case .file:
+            image = NSImage(systemSymbolName: "doc", accessibilityDescription: "File")
+        case .script:
+            image = NSImage(systemSymbolName: "terminal", accessibilityDescription: "Script")
+        case .shortcut:
+            image = NSImage(systemSymbolName: "square.stack.3d.up.fill", accessibilityDescription: "Shortcut")
+        }
+        image?.size = size
+        if self.category != .app {
+            image?.isTemplate = true
+        }
+        return image
+    }
 }
 
 extension ShortcutTarget: Codable {
-    enum CodingKeys: String, CodingKey {
-        case app, url, file, script, shortcut
+    enum CodingKeys: CodingKey {
+        case type, payload
     }
-
-    private enum AppKeys: String, CodingKey { case bundleId }
-    private enum ShortcutKeys: String, CodingKey { case name }
-    private enum ScriptKeys: String, CodingKey { case name, command, runsInTerminal }
+    
+    enum PayloadKeys: String, CodingKey {
+        case name, bundleId, address, path, command, runsInTerminal, executionName
+    }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try container.decode(ShortcutCategory.self, forKey: .type)
+        let payload = try container.nestedContainer(keyedBy: PayloadKeys.self, forKey: .payload)
 
-        if container.contains(.app) {
-            let appContainer = try container.nestedContainer(keyedBy: AppKeys.self, forKey: .app)
-            self = .app(bundleId: try appContainer.decode(String.self, forKey: .bundleId))
-        } else if container.contains(.url) {
-            self = .url(try container.decode(String.self, forKey: .url))
-        } else if container.contains(.file) {
-            self = .file(try container.decode(String.self, forKey: .file))
-        } else if container.contains(.shortcut) {
-            let shortcutContainer = try container.nestedContainer(keyedBy: ShortcutKeys.self, forKey: .shortcut)
-            self = .shortcut(name: try shortcutContainer.decode(String.self, forKey: .name))
-        } else if container.contains(.script) {
-            let scriptContainer = try container.nestedContainer(keyedBy: ScriptKeys.self, forKey: .script)
-            let command = try scriptContainer.decode(String.self, forKey: .command)
-            let runsInTerminal = try scriptContainer.decode(Bool.self, forKey: .runsInTerminal)
-            let name = try scriptContainer.decodeIfPresent(String.self, forKey: .name) ?? "Script"
-            self = .script(name: name, command: command, runsInTerminal: runsInTerminal)
-        } else {
-            throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: container.codingPath, debugDescription: "Data appears to be corrupted or in an unknown format."))
+        switch type {
+        case .app:
+            self = .app(name: try payload.decode(String.self, forKey: .name), bundleId: try payload.decode(String.self, forKey: .bundleId))
+        case .url:
+            self = .url(name: try payload.decode(String.self, forKey: .name), address: try payload.decode(String.self, forKey: .address))
+        case .file:
+            self = .file(name: try payload.decode(String.self, forKey: .name), path: try payload.decode(String.self, forKey: .path))
+        case .script:
+            self = .script(name: try payload.decode(String.self, forKey: .name), command: try payload.decode(String.self, forKey: .command), runsInTerminal: try payload.decode(Bool.self, forKey: .runsInTerminal))
+        case .shortcut:
+            self = .shortcut(name: try payload.decode(String.self, forKey: .name), executionName: try payload.decode(String.self, forKey: .executionName))
         }
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.category, forKey: .type)
+        var payload = container.nestedContainer(keyedBy: PayloadKeys.self, forKey: .payload)
+
         switch self {
-        case .app(let bundleId):
-            var appContainer = container.nestedContainer(keyedBy: AppKeys.self, forKey: .app)
-            try appContainer.encode(bundleId, forKey: .bundleId)
-        case .url(let urlString):
-            try container.encode(urlString, forKey: .url)
-        case .file(let path):
-            try container.encode(path, forKey: .file)
-        case .shortcut(let name):
-            var shortcutContainer = container.nestedContainer(keyedBy: ShortcutKeys.self, forKey: .shortcut)
-            try shortcutContainer.encode(name, forKey: .name)
+        case .app(let name, let bundleId):
+            try payload.encode(name, forKey: .name)
+            try payload.encode(bundleId, forKey: .bundleId)
+        case .url(let name, let address):
+            try payload.encode(name, forKey: .name)
+            try payload.encode(address, forKey: .address)
+        case .file(let name, let path):
+            try payload.encode(name, forKey: .name)
+            try payload.encode(path, forKey: .path)
+        case .shortcut(let name, let executionName):
+            try payload.encode(name, forKey: .name)
+            try payload.encode(executionName, forKey: .executionName)
         case .script(let name, let command, let runsInTerminal):
-            var scriptContainer = container.nestedContainer(keyedBy: ScriptKeys.self, forKey: .script)
-            try scriptContainer.encode(name, forKey: .name)
-            try scriptContainer.encode(command, forKey: .command)
-            try scriptContainer.encode(runsInTerminal, forKey: .runsInTerminal)
+            try payload.encode(name, forKey: .name)
+            try payload.encode(command, forKey: .command)
+            try payload.encode(runsInTerminal, forKey: .runsInTerminal)
         }
     }
 }
-
 
 struct ShortcutConfiguration: Codable, Hashable {
     var target: ShortcutTarget
@@ -411,7 +437,7 @@ class AppHotKeyManager: ObservableObject {
             id: UUID(),
             shortcut: settings.appAssigningShortcut.keys,
             trigger: settings.appAssigningShortcut.trigger,
-            configuration: .init(target: .app(bundleId: InternalShortcutID.quickAssign.rawValue))
+            configuration: .init(target: .app(name: "Quick Assign", bundleId: InternalShortcutID.quickAssign.rawValue))
         )
         allAssignments.append(quickAssignAssignment)
 
@@ -486,9 +512,13 @@ class AppHotKeyManager: ObservableObject {
         }
         
         var info = pressTracker[comboId, default: PressInfo()]
+        info.dispatchWorkItem?.cancel()
+        
         let now = CACurrentMediaTime()
         
-        if (now - info.lastPressTime) > multiPressThreshold { info.count = 0 }
+        if (now - info.lastPressTime) > multiPressThreshold {
+            info.count = 0
+        }
         
         info.count += 1
         let currentCount = info.count
@@ -537,11 +567,8 @@ class AppHotKeyManager: ObservableObject {
             default: triggerType = nil
             }
             
-            if let type = triggerType {
-                let matchingAssignments = assignments.filter({ $0.trigger == type })
-                for assignment in matchingAssignments {
-                    _ = self.handleActivation(assignment: assignment)
-                }
+            if let type = triggerType, let assignment = assignments.first(where: { $0.trigger == type }) {
+                _ = self.handleActivation(assignment: assignment)
             }
             self.pressTracker[comboId] = nil
         }
@@ -655,10 +682,10 @@ class AppHotKeyManager: ObservableObject {
         case .create(let target):
             let newAssignment = Assignment(shortcut: finalKeys, trigger: self.recordedTriggerType, configuration: .init(target:target))
             settings.addAssignment(newAssignment)
-            NotificationManager.shared.sendNotification(title: "Shortcut Set!", body: "Shortcut for \(getDisplayName(for: target) ?? "item") is now \(shortcutKeyCombinationString(for: finalKeys)).")
+            NotificationManager.shared.sendNotification(title: "Shortcut Set!", body: "Shortcut for \(target.displayName) is now \(shortcutKeyCombinationString(for: finalKeys)).")
         case .edit(let id, let target):
             settings.updateAssignment(id: id, newShortcut: finalKeys, newTrigger: self.recordedTriggerType)
-            NotificationManager.shared.sendNotification(title: "Shortcut Set!", body: "Shortcut for \(getDisplayName(for: target) ?? "item") is now \(shortcutKeyCombinationString(for: finalKeys)).")
+            NotificationManager.shared.sendNotification(title: "Shortcut Set!", body: "Shortcut for \(target.displayName) is now \(shortcutKeyCombinationString(for: finalKeys)).")
         case .cheatsheet:
             settings.cheatsheetShortcut = SpecialShortcut(keys: finalKeys, trigger: .press)
             NotificationManager.shared.sendNotification(title: "Cheatsheet Shortcut Set!", body: "The cheatsheet hotkey is now \(shortcutKeyCombinationString(for: finalKeys)).")
@@ -668,7 +695,7 @@ class AppHotKeyManager: ObservableObject {
         case .appAssigning(let target):
             let newAssignment = Assignment(shortcut: finalKeys, trigger: self.recordedTriggerType, configuration: .init(target:target))
             settings.addAssignment(newAssignment)
-            NotificationManager.shared.sendNotification(title: "Shortcut Set!", body: "Shortcut for \(getDisplayName(for: target) ?? "item") is now \(shortcutKeyCombinationString(for: finalKeys)).")
+            NotificationManager.shared.sendNotification(title: "Shortcut Set!", body: "Shortcut for \(target.displayName) is now \(shortcutKeyCombinationString(for: finalKeys)).")
         }
         
         closeRecorder()
@@ -680,10 +707,10 @@ class AppHotKeyManager: ObservableObject {
         case .create(let target):
             let newAssignment = Assignment(shortcut: [], configuration: .init(target: target))
             settings.addAssignment(newAssignment)
-            NotificationManager.shared.sendNotification(title: "Shortcut Added", body: "\(getDisplayName(for: target) ?? "item") was added without a hotkey.")
+            NotificationManager.shared.sendNotification(title: "Shortcut Added", body: "\(target.displayName) was added without a hotkey.")
         case .edit(let id, let target):
             settings.updateAssignment(id: id, newShortcut: [])
-            NotificationManager.shared.sendNotification(title: "Shortcut Cleared", body: "The hotkey for \(getDisplayName(for: target) ?? "item") has been removed.")
+            NotificationManager.shared.sendNotification(title: "Shortcut Cleared", body: "The hotkey for \(target.displayName) has been removed.")
         case .cheatsheet:
             settings.cheatsheetShortcut = SpecialShortcut(keys: [], trigger: .press)
             NotificationManager.shared.sendNotification(title: "Cheatsheet Shortcut Cleared", body: "The hotkey for the cheatsheet has been removed.")
@@ -702,11 +729,11 @@ class AppHotKeyManager: ObservableObject {
             
             let config = assignment.configuration
             switch config.target {
-            case .app(let bundleId): DispatchQueue.main.async { self.handleAppActivation(bundleId: bundleId, behavior: config.behavior) }
-            case .url(let urlString): DispatchQueue.main.async { if let url = URL(string: urlString) { NSWorkspace.shared.open(url) } }
-            case .file(let path): DispatchQueue.main.async { NSWorkspace.shared.open(URL(fileURLWithPath: path)) }
+            case .app(_, let bundleId): DispatchQueue.main.async { self.handleAppActivation(bundleId: bundleId, behavior: config.behavior) }
+            case .url(_, let address): DispatchQueue.main.async { if let url = URL(string: address) { NSWorkspace.shared.open(url) } }
+            case .file(_, let path): DispatchQueue.main.async { NSWorkspace.shared.open(URL(fileURLWithPath: path)) }
             case .script(_, let command, let runsInTerminal): DispatchQueue.global(qos: .userInitiated).async { self.runScript(command: command, runsInTerminal: runsInTerminal) }
-            case .shortcut(let name): DispatchQueue.global(qos: .userInitiated).async { self.runShortcut(name: name) }
+            case .shortcut(_, let name): DispatchQueue.global(qos: .userInitiated).async { self.runShortcut(name: name) }
             }
             return true
         }
@@ -732,7 +759,8 @@ class AppHotKeyManager: ObservableObject {
                     return
                 }
                 
-                self.startRecording(for: .appAssigning(target: .app(bundleId: id)))
+                let appName = self.getAppName(for: id)
+                self.startRecording(for: .appAssigning(target: .app(name: appName, bundleId: id)))
                 NotificationCenter.default.post(name: .showAssigningOverlay, object: nil)
             }
             return true
@@ -939,17 +967,7 @@ class AppHotKeyManager: ObservableObject {
     
     private func runShortcut(name: String) { let task = Process(); task.executableURL = URL(fileURLWithPath: "/usr/bin/shortcuts"); task.arguments = ["run", name]; do { try task.run() } catch { print("Failed to run shortcut '\(name)': \(error)"); NotificationManager.shared.sendNotification(title: "Shortcut Failed", body: "Could not run '\(name)'.") } }
     
-    func getDisplayName(for target: ShortcutTarget) -> String? {
-        switch target {
-        case .app(let bundleId): return getAppName(for: bundleId)
-        case .url(let urlString): return URL(string: urlString)?.host ?? "URL"
-        case .file(let path): return URL(fileURLWithPath: path).lastPathComponent
-        case .script(let name, _, _): return name.isEmpty ? "Script" : name
-        case .shortcut(let name): return name
-        }
-    }
-    
-    func getAppName(for bundleId: String) -> String? {
+    func getAppName(for bundleId: String) -> String {
         if let cachedName = appNameCache[bundleId] {
             return cachedName
         }
@@ -970,6 +988,7 @@ class AppHotKeyManager: ObservableObject {
         appNameCache[bundleId] = fallbackName
         return fallbackName
     }
+    
     func getAppIcon(for bundleId: String) -> NSImage? {
         if let cachedIcon = appIconCache[bundleId] {
             return cachedIcon
@@ -981,14 +1000,13 @@ class AppHotKeyManager: ObservableObject {
         appIconCache[bundleId] = icon
         return icon
     }
-    func getIcon(for target: ShortcutTarget, size: NSSize = NSSize(width: 18, height: 18)) -> NSImage? { let image: NSImage?; switch target { case .app(let bundleId): image = getAppIcon(for: bundleId); case .url: image = NSImage(systemSymbolName: "globe", accessibilityDescription: "URL"); case .file: image = NSImage(systemSymbolName: "doc", accessibilityDescription: "File"); case .script: image = NSImage(systemSymbolName: "terminal", accessibilityDescription: "Script"); case .shortcut: image = NSImage(systemSymbolName: "square.stack.3d.up.fill", accessibilityDescription: "Shortcut") }; image?.size = size; if target.category != .app { image?.isTemplate = true }; return image }
     
     func shortcutKeyCombinationString(for keys: [ShortcutKey]) -> String { if keys.isEmpty { return "Not Set" }; return keys.map { $0.symbol }.joined(separator: " + ") }
 }
 
 fileprivate extension ShortcutTarget {
     var bundleId: String? {
-        if case .app(let id) = self {
+        if case .app(_, let id) = self {
             return id
         }
         return nil

@@ -1,4 +1,4 @@
-// SettingsManager.swift
+//SettingsManager.swift
 import SwiftUI
 import Combine
 
@@ -214,95 +214,33 @@ class SettingsManager: ObservableObject {
 
     private static func loadAndMigrateProfiles(from key: String) -> [Profile] {
         guard let data = UserDefaults.standard.data(forKey: key) else {
-            let oldProfilesKeyV5 = "WrapKey_Profiles_v5"
-            if let oldData = UserDefaults.standard.data(forKey: oldProfilesKeyV5) {
-                struct OldShortcutKey: Codable { var keyCode: CGKeyCode; var isTrueModifier: Bool }
-                struct OldAssignmentV5: Codable { var id: UUID; var keyCode: CGKeyCode?; var configuration: ShortcutConfiguration }
-                struct OldProfileV5: Codable {
-                    var id: UUID; var name: String; var triggerModifiers: [ShortcutCategory: [OldShortcutKey]];
-                    var secondaryModifier: [OldShortcutKey]; var assignments: [OldAssignmentV5]
-                }
-
-                if let decodedOldProfiles = try? JSONDecoder().decode([OldProfileV5].self, from: oldData) {
-                    let migratedProfiles = decodedOldProfiles.map { oldProfile -> Profile in
-                        let newAssignments = oldProfile.assignments.map { oldAssignment -> Assignment in
-                            var newShortcut: [ShortcutKey] = []
-                            let category = oldAssignment.configuration.target.category
-                            let modifiersToApply = oldProfile.triggerModifiers[category] ?? []
-                            newShortcut.append(contentsOf: modifiersToApply.map { ShortcutKey.from(keyCode: $0.keyCode, isModifier: $0.isTrueModifier, isSystemEvent: false) })
-                            if let kc = oldAssignment.keyCode { newShortcut.append(ShortcutKey.from(keyCode: kc, isModifier: false, isSystemEvent: false)) }
-                            return Assignment(id: oldAssignment.id, shortcut: newShortcut, trigger: .press, configuration: oldAssignment.configuration)
-                        }
-                        return Profile(id: oldProfile.id, name: oldProfile.name, assignments: newAssignments)
-                    }
-                    UserDefaults.standard.removeObject(forKey: oldProfilesKeyV5)
-                    if let encoded = try? JSONEncoder().encode(migratedProfiles) {
-                        UserDefaults.standard.set(encoded, forKey: key)
-                    }
-                    return migratedProfiles
-                }
-            }
             return [createDefaultProfile()]
         }
-
         do {
             let profiles = try JSONDecoder().decode([Profile].self, from: data)
-            if !profiles.isEmpty {
-                return profiles
-            }
+            return profiles.isEmpty ? [createDefaultProfile()] : profiles
         } catch {
-            struct OldProfile: Decodable {
-                let id: UUID
-                let name: String
-                let assignments: [OldAssignment]
-            }
-
-            struct OldAssignment: Decodable {
-                let id: UUID
-                let shortcut: [ShortcutKey]
-                let trigger: ShortcutTriggerType
-                let configuration: OldConfiguration
-            }
-
-            struct OldConfiguration: Decodable {
-                let target: OldShortcutTarget
-                let behavior: ShortcutConfiguration.Behavior
-            }
-
-            enum OldShortcutTarget: Decodable {
-                case app(bundleId: String)
-                case url(String)
-                case file(String)
-                case script(command: String, runsInTerminal: Bool)
-                case shortcut(name: String)
-            }
-
-            if let oldProfiles = try? JSONDecoder().decode([OldProfile].self, from: data) {
-                let migratedProfiles = oldProfiles.map { oldProfile -> Profile in
-                    let newAssignments = oldProfile.assignments.map { oldAssignment -> Assignment in
-                        let newTarget: ShortcutTarget
-                        switch oldAssignment.configuration.target {
-                            case .app(let id): newTarget = .app(bundleId: id)
-                            case .url(let s): newTarget = .url(s)
-                            case .file(let s): newTarget = .file(s)
-                            case .shortcut(let n): newTarget = .shortcut(name: n)
-                            case .script(let c, let r): newTarget = .script(name: "Script", command: c, runsInTerminal: r)
-                        }
-                        
-                        let newConfig = ShortcutConfiguration(target: newTarget, behavior: oldAssignment.configuration.behavior)
-                        return Assignment(id: oldAssignment.id, shortcut: oldAssignment.shortcut, trigger: oldAssignment.trigger, configuration: newConfig)
-                    }
-                    return Profile(id: oldProfile.id, name: oldProfile.name, assignments: newAssignments)
-                }
-                
+            do {
+                let intermediateProfiles = try JSONDecoder().decode([IntermediateProfile].self, from: data)
+                let migratedProfiles = intermediateProfiles.map { $0.asNewProfile() }
                 if let encoded = try? JSONEncoder().encode(migratedProfiles) {
                     UserDefaults.standard.set(encoded, forKey: key)
                 }
-                return migratedProfiles
+                return migratedProfiles.isEmpty ? [createDefaultProfile()] : migratedProfiles
+            } catch {
+                do {
+                    let oldProfiles = try JSONDecoder().decode([OldProfile].self, from: data)
+                    let migratedProfiles = oldProfiles.map { $0.asNewProfile() }
+                    if let encoded = try? JSONEncoder().encode(migratedProfiles) {
+                        UserDefaults.standard.set(encoded, forKey: key)
+                    }
+                    return migratedProfiles.isEmpty ? [createDefaultProfile()] : migratedProfiles
+                } catch let finalError {
+                    print("Failed to decode and migrate any known profile format. Error: \(finalError)")
+                    return [createDefaultProfile()]
+                }
             }
         }
-        
-        return [createDefaultProfile()]
     }
 
     private static func createDefaultProfile() -> Profile {
@@ -353,6 +291,130 @@ class SettingsManager: ObservableObject {
             if currentProfileID == id {
                 currentProfileID = profiles.first!.id
             }
+        }
+    }
+}
+
+private func appNameProvider(for bundleId: String) -> String {
+    guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else { return bundleId }
+    if let bundle = Bundle(url: url),
+       let name = bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? bundle.object(forInfoDictionaryKey: "CFBundleName") as? String,
+       !name.isEmpty {
+        return name
+    }
+    return FileManager.default.displayName(atPath: url.path)
+}
+
+private struct IntermediateProfile: Decodable {
+    let id: UUID
+    let name: String
+    let assignments: [IntermediateAssignment]
+    func asNewProfile() -> Profile {
+        Profile(id: id, name: name, assignments: assignments.map { $0.asNewAssignment() })
+    }
+}
+private struct IntermediateAssignment: Decodable {
+    let id: UUID
+    let shortcut: [ShortcutKey]
+    let trigger: ShortcutTriggerType?
+    let configuration: IntermediateConfiguration
+    func asNewAssignment() -> Assignment {
+        Assignment(id: id, shortcut: shortcut, trigger: trigger ?? .press, configuration: configuration.asNewConfiguration())
+    }
+}
+private struct IntermediateConfiguration: Decodable {
+    let target: IntermediateShortcutTarget
+    let behavior: ShortcutConfiguration.Behavior
+    func asNewConfiguration() -> ShortcutConfiguration {
+        ShortcutConfiguration(target: target.asNewTarget(), behavior: behavior)
+    }
+}
+private enum IntermediateShortcutTarget: Decodable {
+    case app(name: String, bundleId: String)
+    case url(name: String, address: String)
+    case file(name: String, path: String)
+    case script(name: String, command: String, runsInTerminal: Bool)
+    case shortcut(name: String, executionName: String)
+    enum CodingKeys: String, CodingKey { case app, url, file, script, shortcut }
+    private enum AppKeys: String, CodingKey { case name, bundleId }
+    private enum URLKeys: String, CodingKey { case name, address }
+    private enum FileKeys: String, CodingKey { case name, path }
+    private enum ScriptKeys: String, CodingKey { case name, command, runsInTerminal }
+    private enum ShortcutKeys: String, CodingKey { case name, executionName }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if let payload = try? c.nestedContainer(keyedBy: AppKeys.self, forKey: .app) { self = .app(name: try payload.decode(String.self, forKey: .name), bundleId: try payload.decode(String.self, forKey: .bundleId)) }
+        else if let payload = try? c.nestedContainer(keyedBy: URLKeys.self, forKey: .url) { self = .url(name: try payload.decode(String.self, forKey: .name), address: try payload.decode(String.self, forKey: .address)) }
+        else if let payload = try? c.nestedContainer(keyedBy: FileKeys.self, forKey: .file) { self = .file(name: try payload.decode(String.self, forKey: .name), path: try payload.decode(String.self, forKey: .path)) }
+        else if let payload = try? c.nestedContainer(keyedBy: ScriptKeys.self, forKey: .script) { self = .script(name: try payload.decode(String.self, forKey: .name), command: try payload.decode(String.self, forKey: .command), runsInTerminal: try payload.decode(Bool.self, forKey: .runsInTerminal)) }
+        else if let payload = try? c.nestedContainer(keyedBy: ShortcutKeys.self, forKey: .shortcut) { self = .shortcut(name: try payload.decode(String.self, forKey: .name), executionName: try payload.decode(String.self, forKey: .executionName)) }
+        else { throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: c.codingPath, debugDescription: "Corrupt data")) }
+    }
+    func asNewTarget() -> ShortcutTarget {
+        switch self {
+        case .app(let n, let b): return .app(name: n, bundleId: b)
+        case .url(let n, let a): return .url(name: n, address: a)
+        case .file(let n, let p): return .file(name: n, path: p)
+        case .script(let n, let c, let r): return .script(name: n, command: c, runsInTerminal: r)
+        case .shortcut(let n, let e): return .shortcut(name: n, executionName: e)
+        }
+    }
+}
+
+private struct OldProfile: Decodable {
+    let id: UUID
+    let name: String
+    let assignments: [OldAssignment]
+    func asNewProfile() -> Profile {
+        Profile(id: id, name: name, assignments: assignments.map { $0.asNewAssignment() })
+    }
+}
+private struct OldAssignment: Decodable {
+    let id: UUID
+    let shortcut: [ShortcutKey]
+    let trigger: ShortcutTriggerType?
+    let configuration: OldConfiguration
+    func asNewAssignment() -> Assignment {
+        Assignment(id: id, shortcut: shortcut, trigger: trigger ?? .press, configuration: configuration.asNewConfiguration())
+    }
+}
+private struct OldConfiguration: Decodable {
+    let target: OldShortcutTarget
+    let behavior: ShortcutConfiguration.Behavior
+    func asNewConfiguration() -> ShortcutConfiguration {
+        ShortcutConfiguration(target: target.asNewTarget(), behavior: behavior)
+    }
+}
+private enum OldShortcutTarget: Decodable {
+    case app(bundleId: String)
+    case url(String)
+    case file(String)
+    case script(name: String, command: String, runsInTerminal: Bool)
+    case shortcut(name: String)
+    enum CodingKeys: String, CodingKey { case app, url, file, script, shortcut }
+    private enum AppKeys: String, CodingKey { case bundleId }
+    private enum ShortcutKeys: String, CodingKey { case name }
+    private enum ScriptKeys: String, CodingKey { case name, command, runsInTerminal }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if c.contains(.app) {
+            do { self = .app(bundleId: try c.nestedContainer(keyedBy: AppKeys.self, forKey: .app).decode(String.self, forKey: .bundleId)) }
+            catch { self = .app(bundleId: try c.decode(String.self, forKey: .app)) }
+        } else if c.contains(.url) { self = .url(try c.decode(String.self, forKey: .url)) }
+        else if c.contains(.file) { self = .file(try c.decode(String.self, forKey: .file)) }
+        else if c.contains(.shortcut) {
+            do { self = .shortcut(name: try c.nestedContainer(keyedBy: ShortcutKeys.self, forKey: .shortcut).decode(String.self, forKey: .name)) }
+            catch { self = .shortcut(name: try c.decode(String.self, forKey: .shortcut)) }
+        } else if c.contains(.script) { let s = try c.nestedContainer(keyedBy: ScriptKeys.self, forKey: .script); self = .script(name: try s.decodeIfPresent(String.self, forKey: .name) ?? "Script", command: try s.decode(String.self, forKey: .command), runsInTerminal: try s.decode(Bool.self, forKey: .runsInTerminal)) }
+        else { throw DecodingError.dataCorrupted(.init(codingPath: c.codingPath, debugDescription: "Corrupt data")) }
+    }
+    func asNewTarget() -> ShortcutTarget {
+        switch self {
+        case .app(let b): return .app(name: appNameProvider(for: b), bundleId: b)
+        case .url(let u): return .url(name: URL(string: u)?.host ?? "Link", address: u)
+        case .file(let p): return .file(name: URL(fileURLWithPath: p).lastPathComponent, path: p)
+        case .script(let n, let c, let r): return .script(name: n, command: c, runsInTerminal: r)
+        case .shortcut(let n): return .shortcut(name: n, executionName: n)
         }
     }
 }

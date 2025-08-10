@@ -139,13 +139,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         handleOpenMainWindow()
         NotificationCenter.default.post(name: .goToSettingsPageInMainWindow, object: nil)
     }
+    
     @objc func handleRestartRequest() {
         guard let appPath = Bundle.main.bundlePath as String? else {
             print("Could not determine application path for restart.")
             return
         }
         
-        let command = "(/bin/sleep 1 && /usr/bin/open -a \"\(appPath)\" --args --show-window-on-launch) &"
+        let pid = ProcessInfo.processInfo.processIdentifier
+        let command = "(while kill -0 \(pid) 2>/dev/null; do sleep 0.1; done; /usr/bin/open -a \"\(appPath)\" --args --show-window-on-launch) &"
         
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/bin/sh")
@@ -200,11 +202,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             noShortcutsItem.isEnabled = false
             menu.addItem(noShortcutsItem)
         } else {
-            for assignment in allAssignments.sorted(by: { (hotKeyManager.getDisplayName(for: $0.configuration.target) ?? "") < (hotKeyManager.getDisplayName(for: $1.configuration.target) ?? "") }) {
-                let title = hotKeyManager.getDisplayName(for: assignment.configuration.target) ?? "Unknown Shortcut"
+            for assignment in allAssignments.sorted(by: { $0.configuration.target.displayName < $1.configuration.target.displayName }) {
+                let title = assignment.configuration.target.displayName
                 let menuItem = NSMenuItem(title: title, action: #selector(menuItemTriggered(_:)), keyEquivalent: "")
                 menuItem.representedObject = assignment
-                menuItem.image = hotKeyManager.getIcon(for: assignment.configuration.target)
+                menuItem.image = assignment.configuration.target.getIcon(using: hotKeyManager)
                 menu.addItem(menuItem)
             }
         }
@@ -295,6 +297,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
     func hideCheatsheet() {
         cheatsheetWindow?.orderOut(nil)
+        cheatsheetWindow = nil
     }
 
     func createAssigningOverlayWindow() {

@@ -1,4 +1,4 @@
-//Views.swift
+
 import SwiftUI
 import AppKit
 import Sparkle
@@ -35,7 +35,10 @@ static func getAllApps(completion: @escaping ([AppInfo]) -> Void) {
                               let bundleId = bundle.bundleIdentifier,
                               !seenBundleIDs.contains(bundleId) else { continue }
 
-                        let appName = fileManager.displayName(atPath: url.path)
+                        var appName = fileManager.displayName(atPath: url.path)
+                        if appName.hasSuffix(".app") {
+                            appName = String(appName.dropLast(4))
+                        }
                         
                         let icon = NSWorkspace.shared.icon(forFile: url.path)
                         
@@ -61,20 +64,18 @@ static func getAllApps(completion: @escaping ([AppInfo]) -> Void) {
 }
 
 enum SheetType: Identifiable, Equatable {
-case addURL, addScript, addShortcut, addApp
-case editURL(assignment: Assignment)
-case editScript(assignment: Assignment)
+    case addApp, addShortcut, addURL, addScript
+    case edit(assignment: Assignment)
 
-var id: String {
-    switch self {
-    case .addURL: "addURL"
-    case .addScript: "addScript"
-    case .addShortcut: "addShortcut"
-    case .addApp: "addApp"
-    case .editURL(let a): "editURL-\(a.id)"
-    case .editScript(let a): "editScript-\(a.id)"
+    var id: String {
+        switch self {
+        case .addApp: "addApp"
+        case .addShortcut: "addShortcut"
+        case .addURL: "addURL"
+        case .addScript: "addScript"
+        case .edit(let a): "edit-\(a.id)"
+        }
     }
-}
 }
 
 enum AppPage: Hashable {
@@ -263,11 +264,35 @@ struct MainSettingsView: View {
     @State private var showingSheet: SheetType?
     @State private var assignmentForEditOptions: Assignment?
     @State private var isShowingEditOptionsDialog = false
+    @State private var recordHotKeyForAssignmentId: UUID?
 
     private var categorizedAssignments: [ShortcutCategory: [Assignment]] {
         Dictionary(grouping: settings.currentProfile.wrappedValue.assignments) { $0.configuration.target.category }
     }
     private let categoryOrder: [ShortcutCategory] = [.app, .shortcut, .url, .file, .script]
+    
+    private func editButtonTitle(for target: ShortcutTarget) -> String {
+        switch target {
+        case .app, .shortcut:
+            return "Edit Name"
+        case .url, .script, .file:
+            return "Edit Details"
+        }
+    }
+    
+    private func handleAddFile() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = true
+        if panel.runModal() == .OK, let url = panel.url {
+            let name = url.lastPathComponent
+            let target = ShortcutTarget.file(name: name, path: url.path)
+            let newAssignment = Assignment(shortcut: [], configuration: .init(target: target))
+            settings.addAssignment(newAssignment)
+            self.recordHotKeyForAssignmentId = newAssignment.id
+            self.showingSheet = .edit(assignment: newAssignment)
+        }
+    }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -276,26 +301,15 @@ struct MainSettingsView: View {
                     EmptyStateView()
                 } else {
                     ForEach(categoryOrder, id: \.self) { category in
-                        if let items = categorizedAssignments[category]?.sorted(by: { (manager.getDisplayName(for: $0.configuration.target) ?? "") < (manager.getDisplayName(for: $1.configuration.target) ?? "") }), !items.isEmpty {
+                        if let items = categorizedAssignments[category]?.sorted(by: { $0.configuration.target.displayName < $1.configuration.target.displayName }), !items.isEmpty {
                             Section(header: CategoryHeader(category: category)) {
                                 ForEach(items) { assignment in
                                     AssignmentRow(
                                         manager: manager,
                                         assignment: assignment,
                                         onShowEditOptions: {
-                                            let isEditable: Bool = {
-                                                switch assignment.configuration.target {
-                                                case .url, .script, .file: return true
-                                                default: return false
-                                                }
-                                            }()
-                                            
-                                            if isEditable {
-                                                self.assignmentForEditOptions = assignment
-                                                self.isShowingEditOptionsDialog = true
-                                            } else {
-                                                manager.startRecording(for: .edit(assignmentID: assignment.id, target: assignment.configuration.target))
-                                            }
+                                            self.assignmentForEditOptions = assignment
+                                            self.isShowingEditOptionsDialog = true
                                         }
                                     )
                                 }
@@ -309,7 +323,7 @@ struct MainSettingsView: View {
             .padding(.top, 18)
         }
         .safeAreaInset(edge: .bottom) {
-            FooterView(onShowHelp: showHelpPage, onShowAppSettings: showAppSettingsPage, sheetType: $showingSheet)
+            FooterView(onShowHelp: showHelpPage, onShowAppSettings: showAppSettingsPage, onAddFile: handleAddFile, sheetType: $showingSheet)
                 .environmentObject(manager)
         }
         .customSheet(
@@ -319,53 +333,52 @@ struct MainSettingsView: View {
             ),
             animated: true
         ) {
-            let startRecording: (ShortcutTarget) -> Void = { target in
-                manager.startRecording(for: .create(target: target))
-            }
-            
             switch showingSheet {
-            case .addURL:
-                AddURLView(onSave: { url in startRecording(.url(url)) }, showingSheet: $showingSheet)
-            case .addScript:
-                AddScriptView(onSave: { name, command, runsInTerminal in startRecording(.script(name: name, command: command, runsInTerminal: runsInTerminal)) }, showingSheet: $showingSheet)
-            case .addShortcut:
-                ShortcutPickerView(onSave: { name in startRecording(.shortcut(name: name)) }, showingSheet: $showingSheet)
             case .addApp:
-                AddAppView(onSave: { bundleId in startRecording(.app(bundleId: bundleId)) }, showingSheet: $showingSheet)
-            case .editURL(let assignment):
-                 if case .url(let url) = assignment.configuration.target {
-                    EditURLView(
-                        assignmentID: assignment.id,
-                        initialURL: url,
-                        onSave: { id, newURL in
-                            settings.updateAssignmentContent(id: id, newTarget: .url(newURL))
-                        },
-                        isPresented: Binding(
-                            get: { self.showingSheet != nil },
-                            set: { if !$0 { self.showingSheet = nil } }
-                        )
-                    )
-                }
-            case .editScript(let assignment):
-                if case .script(let name, let command, let runsInTerminal) = assignment.configuration.target {
-                    EditScriptView(
-                        assignmentID: assignment.id,
-                        initialName: name,
-                        initialCommand: command,
-                        initialRunsInTerminal: runsInTerminal,
-                        onSave: { id, newName, newCommand, newRunsInTerminal in
-                            settings.updateAssignmentContent(id: id, newTarget: .script(name: newName, command: newCommand, runsInTerminal: newRunsInTerminal))
-                        },
-                        isPresented: Binding(
-                            get: { self.showingSheet != nil },
-                            set: { if !$0 { self.showingSheet = nil } }
-                        )
-                    )
-                }
+                AddAppView(onSave: { name, bundleId in
+                    let target = ShortcutTarget.app(name: name, bundleId: bundleId)
+                    manager.startRecording(for: .create(target: target))
+                    showingSheet = nil
+                }, showingSheet: $showingSheet)
+            case .addShortcut:
+                ShortcutPickerView(onSave: { name in
+                    let target = ShortcutTarget.shortcut(name: name, executionName: name)
+                    manager.startRecording(for: .create(target: target))
+                    showingSheet = nil
+                }, showingSheet: $showingSheet)
+            case .addURL:
+                AddURLView(onSave: { url in
+                    let name = URL(string: url)?.host ?? "Link"
+                    let target = ShortcutTarget.url(name: name, address: url)
+                    manager.startRecording(for: .create(target: target))
+                    showingSheet = nil
+                }, showingSheet: $showingSheet)
+            case .addScript:
+                AddScriptView(onSave: { name, command, runsInTerminal in
+                    let target = ShortcutTarget.script(name: name, command: command, runsInTerminal: runsInTerminal)
+                    let newAssignment = Assignment(shortcut: [], configuration: .init(target: target))
+                    settings.addAssignment(newAssignment)
+                    recordHotKeyForAssignmentId = newAssignment.id
+                    showingSheet = .edit(assignment: newAssignment)
+                }, showingSheet: $showingSheet)
+            case .edit(let assignment):
+                EditView(
+                    assignment: assignment,
+                    isPresented: Binding(get: { self.showingSheet != nil }, set: { if !$0 { self.showingSheet = nil } })
+                )
             case .none:
                 EmptyView()
             }
-            
+        }
+        .onChange(of: showingSheet) { newValue in
+            if newValue == nil, let assignmentId = recordHotKeyForAssignmentId {
+                if let assignmentToRecord = settings.currentProfile.wrappedValue.assignments.first(where: { $0.id == assignmentId }) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        manager.startRecording(for: .edit(assignmentID: assignmentToRecord.id, target: assignmentToRecord.configuration.target))
+                    }
+                }
+                recordHotKeyForAssignmentId = nil
+            }
         }
         .id(showingSheet?.id)
         .confirmationDialog("Edit Shortcut", isPresented: $isShowingEditOptionsDialog, titleVisibility: .visible) {
@@ -373,32 +386,9 @@ struct MainSettingsView: View {
                 Button("Change Hotkey") {
                     manager.startRecording(for: .edit(assignmentID: assignment.id, target: assignment.configuration.target))
                 }
-
-                let isContentEditable: Bool = {
-                    switch assignment.configuration.target {
-                    case .url, .script, .file: return true
-                    default: return false
-                    }
-                }()
-
-                if isContentEditable {
-                    Button("Edit Content") {
-                        switch assignment.configuration.target {
-                        case .url:
-                            self.showingSheet = .editURL(assignment: assignment)
-                        case .script:
-                            self.showingSheet = .editScript(assignment: assignment)
-                        case .file:
-                            let panel = NSOpenPanel()
-                            panel.canChooseFiles = true
-                            panel.canChooseDirectories = true
-                            if panel.runModal() == .OK, let url = panel.url {
-                                settings.updateAssignmentContent(id: assignment.id, newTarget: .file(url.path))
-                            }
-                        default:
-                            break
-                        }
-                    }
+                
+                Button(editButtonTitle(for: assignment.configuration.target)) {
+                    self.showingSheet = .edit(assignment: assignment)
                 }
             }
             Button("Cancel", role: .cancel) { }
@@ -645,7 +635,7 @@ private func importSettings() {
             let validatedProfiles = importedProfiles.map { profile -> Profile in
                 var newProfile = profile; var validatedAssignments: [Assignment] = []
                 for assignment in profile.assignments {
-                    if case .app(let bundleId) = assignment.configuration.target {
+                    if case .app(_, let bundleId) = assignment.configuration.target {
                         if NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) != nil {
                             validatedAssignments.append(assignment); validShortcutsCount += 1
                         } else { skippedShortcutsCount += 1 }
@@ -727,7 +717,7 @@ var body: some View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         ForEach(categoryOrder, id: \.self) { category in
-                            if let items = categorizedAssignments[category]?.sorted(by: { (manager.getDisplayName(for: $0.configuration.target) ?? "") < (manager.getDisplayName(for: $1.configuration.target) ?? "") }), !items.isEmpty {
+                            if let items = categorizedAssignments[category]?.sorted(by: { $0.configuration.target.displayName < $1.configuration.target.displayName }), !items.isEmpty {
                                 
                                 Text(category.rawValue)
                                     .font(.title3.weight(.bold))
@@ -739,7 +729,7 @@ var body: some View {
                                         HStack(spacing: 12) {
                                             ShortcutIcon(target: assignment.configuration.target, manager: manager)
                                                 .frame(width: 28, height: 28)
-                                            ShortcutTitle(target: assignment.configuration.target, manager: manager)
+                                            ShortcutTitle(target: assignment.configuration.target)
                                             Spacer()
                                             
                                             PillCard(content: {
@@ -1072,7 +1062,7 @@ struct AssignmentRow: View {
             HStack(spacing: 12) {
                 ShortcutIcon(target: assignment.configuration.target, manager: manager).frame(width: 36, height: 36)
                 VStack(alignment: .leading, spacing: 2) {
-                    ShortcutTitle(target: assignment.configuration.target, manager: manager)
+                    ShortcutTitle(target: assignment.configuration.target)
                     ShortcutSubtitle(target: assignment.configuration.target)
                 }
                 Spacer()
@@ -1139,16 +1129,12 @@ var isFloating: Bool
 private var displayName: String {
     guard let state = manager.recordingState else { return "..." }
     switch state {
-    case .create(let target):
-        return manager.getDisplayName(for: target) ?? "..."
-    case .edit(_, let target):
-        return manager.getDisplayName(for: target) ?? "..."
+    case .create(let target), .edit(_, let target), .appAssigning(let target):
+        return target.displayName
     case .cheatsheet:
         return "Cheatsheet"
     case .quickAssign:
         return "Quick Assign"
-    case .appAssigning(let target):
-        return manager.getDisplayName(for: target) ?? "Quick Assign"
     }
 }
 
@@ -1255,28 +1241,23 @@ let target: ShortcutTarget
 
 var body: some View {
     Group {
-        switch target {
-        case .app(let bundleId): if let icon = manager.getAppIcon(for: bundleId) { Image(nsImage: icon).resizable() } else { Image(systemName: "app.dashed").font(.system(size: 28)) }
-        case .url: Image(systemName: "globe").font(.system(size: 28)).foregroundColor(AppTheme.accentColor2(for: colorScheme, theme: settings.appTheme))
-        case .file: Image(systemName: "doc").font(.system(size: 28)).foregroundColor(AppTheme.accentColor2(for: colorScheme, theme: settings.appTheme))
-        case .script: Image(systemName: "terminal").font(.system(size: 28)).foregroundColor(AppTheme.accentColor2(for: colorScheme, theme: settings.appTheme))
-        case .shortcut: Image(systemName: "square.stack.3d.up.fill").font(.system(size: 28)).foregroundColor(AppTheme.accentColor2(for: colorScheme, theme: settings.appTheme))
+        if let icon = target.getIcon(using: manager, size: NSSize(width: 28, height: 28)) {
+            Image(nsImage: icon)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+        } else {
+            Image(systemName: "app.dashed")
+                .font(.system(size: 28))
         }
-    }.clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius - 1, style: .continuous))
+    }
+    .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius - 1, style: .continuous))
 }
 }
 
 struct ShortcutTitle: View {
     let target: ShortcutTarget
-    @ObservedObject var manager: AppHotKeyManager
     var body: some View {
-        switch target {
-        case .app(let bundleId): Text(manager.getAppName(for: bundleId) ?? "Unknown App").fontWeight(.semibold)
-        case .url(let urlString): Text(URL(string: urlString)?.host ?? "Link").fontWeight(.semibold)
-        case .file(let path): Text(URL(fileURLWithPath: path).lastPathComponent).fontWeight(.semibold)
-        case .script(let name, _, _): Text(name.isEmpty ? "Script" : name).fontWeight(.semibold)
-        case .shortcut(let name): Text(name).fontWeight(.semibold)
-        }
+        Text(target.displayName).fontWeight(.semibold)
     }
 }
 
@@ -1287,11 +1268,11 @@ struct ShortcutSubtitle: View {
     var body: some View {
         let fullText = {
             switch target {
-            case .app(let bundleId): return bundleId
-            case .url(let urlString): return urlString
-            case .file(let path): return path
+            case .app(_, let bundleId): return bundleId
+            case .url(_, let address): return address
+            case .file(_, let path): return path
             case .script(_, let command, _): return command
-            case .shortcut: return "macOS Shortcut"
+            case .shortcut(_, let executionName): return executionName
             }
         }()
         
@@ -1324,7 +1305,7 @@ func makeBody(configuration: Configuration) -> some View {
 }
 
 struct AddAppView: View {
-var onSave: (String) -> Void
+var onSave: (String, String) -> Void
 @Binding var showingSheet: SheetType?
 @EnvironmentObject var settings: SettingsManager
 @Environment(\.colorScheme) private var colorScheme
@@ -1362,7 +1343,7 @@ var body: some View {
             ScrollView {
                 LazyVStack(spacing: 2) {
                     ForEach(filteredApps) { app in
-                        Button(action: { onSave(app.id); showingSheet = nil }) {
+                        Button(action: { onSave(app.name, app.id) }) {
                             HStack(spacing: 12) {
                                 Image(nsImage: app.icon)
                                     .resizable().aspectRatio(contentMode: .fit)
@@ -1392,7 +1373,11 @@ var body: some View {
                 panel.allowedContentTypes = [.application]
                 panel.directoryURL = URL(fileURLWithPath: "/Applications")
                 if panel.runModal() == .OK, let url = panel.url, let bundleId = Bundle(url: url)?.bundleIdentifier {
-                    onSave(bundleId); showingSheet = nil
+                    var name = FileManager.default.displayName(atPath: url.path)
+                    if name.hasSuffix(".app") {
+                        name = String(name.dropLast(4))
+                    }
+                    onSave(name, bundleId)
                 }
             }.buttonStyle(PillButtonStyle())
         }
@@ -1413,93 +1398,43 @@ var body: some View {
 }
 
 struct AddURLView: View {
-var onSave: (String) -> Void
-@Binding var showingSheet: SheetType?
-@Environment(\.colorScheme) private var colorScheme
-@State private var urlString = "https://"
-@FocusState private var isFocused: Bool
+    var onSave: (String) -> Void
+    @Binding var showingSheet: SheetType?
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var urlString = "https://"
+    @FocusState private var isURLFocused: Bool
 
-var body: some View {
-    VStack(spacing: 20) {
-        Text("Add URL Shortcut")
-            .font(.title2.weight(.bold))
-        
-        URLTextField(text: $urlString)
-            .focused($isFocused)
-            .frame(height: 22)
-        
-        HStack(spacing: 12) {
-            Button("Cancel") {
-                showingSheet = nil
-            }
-            .buttonStyle(PillButtonStyle())
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Add URL Shortcut")
+                .font(.title2.weight(.bold))
+
+            URLTextField(text: $urlString)
+                .focused($isURLFocused)
+                .frame(height: 22)
             
-            Spacer()
-            
-            Button("Next") {
-                onSave(urlString)
-                showingSheet = nil
+            HStack(spacing: 12) {
+                Button("Cancel", role: .cancel) { showingSheet = nil }.buttonStyle(PillButtonStyle())
+                Spacer()
+                Button("Next") {
+                    onSave(urlString)
+                }
+                .buttonStyle(PillButtonStyle())
+                .disabled(!isValidURL())
             }
-            .buttonStyle(PillButtonStyle())
-            .disabled(!isValidURL())
+        }
+        .padding()
+        .frame(width: 400)
+        .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { isURLFocused = true }
         }
     }
-    .padding()
-    .frame(width: 400)
-    .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
-    .onAppear {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            isFocused = true
-        }
+
+    private func isValidURL() -> Bool {
+        guard let url = URL(string: urlString) else { return false }
+        return url.scheme == "http" || url.scheme == "https"
     }
-}
-
-private func isValidURL() -> Bool {
-    guard let url = URL(string: urlString) else { return false }
-    return url.scheme == "http" || url.scheme == "https"
-}
-}
-
-struct EditURLView: View {
-let assignmentID: UUID
-let initialURL: String
-var onSave: (UUID, String) -> Void
-@Binding var isPresented: Bool
-@Environment(\.colorScheme) private var colorScheme
-@State private var urlString: String
-@FocusState private var isFocused: Bool
-
-init(assignmentID: UUID, initialURL: String, onSave: @escaping (UUID, String) -> Void, isPresented: Binding<Bool>) {
-    self.assignmentID = assignmentID
-    self.initialURL = initialURL
-    self.onSave = onSave
-    self._isPresented = isPresented
-    self._urlString = State(initialValue: initialURL)
-}
-
-var body: some View {
-    VStack(spacing: 20) {
-        Text("Edit URL Shortcut").font(.title2.weight(.bold))
-        URLTextField(text: $urlString)
-            .focused($isFocused)
-            .frame(height: 22)
-        HStack(spacing: 12) {
-            Button("Cancel", role: .cancel) { isPresented = false }.buttonStyle(PillButtonStyle())
-            Spacer()
-            Button("Save") {
-                if let url = URL(string: urlString), (url.scheme == "http" || url.scheme == "https") { onSave(assignmentID, urlString); isPresented = false }
-            }
-            .buttonStyle(PillButtonStyle())
-            .disabled(URL(string: urlString) == nil)
-        }
-    }
-    .padding()
-    .frame(width: 400)
-    .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
-    .onAppear {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { isFocused = true }
-    }
-}
 }
 
 struct AddScriptView: View {
@@ -1510,7 +1445,7 @@ struct AddScriptView: View {
     @State private var scriptName = ""
     @State private var command = ""
     @State private var runsInTerminal = false
-    @FocusState private var isFocused: Bool
+    @FocusState private var isNameFocused: Bool
 
     var body: some View {
         VStack(spacing: 20) {
@@ -1519,6 +1454,7 @@ struct AddScriptView: View {
             
             TextField("Script Name (e.g., 'Toggle Wi-Fi')", text: $scriptName)
                 .textFieldStyle(.roundedBorder)
+                .focused($isNameFocused)
 
             ZStack(alignment: .topLeading) {
                 TextEditor(text: $command)
@@ -1527,7 +1463,6 @@ struct AddScriptView: View {
                     .background(AppTheme.pillBackgroundColor(for: colorScheme, theme: settings.appTheme).opacity(0.5))
                     .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
                     .frame(height: 100)
-                    .focused($isFocused)
                 
                 if command.isEmpty {
                     Text("echo 'Hello World'")
@@ -1543,16 +1478,10 @@ struct AddScriptView: View {
                 .toggleStyle(.checkbox)
             
             HStack(spacing: 12) {
-                Button("Cancel") {
-                    showingSheet = nil
-                }
-                .buttonStyle(PillButtonStyle())
-                
+                Button("Cancel", role: .cancel) { showingSheet = nil }.buttonStyle(PillButtonStyle())
                 Spacer()
-                
                 Button("Next") {
                     onSave(scriptName, command, runsInTerminal)
-                    showingSheet = nil
                 }
                 .buttonStyle(PillButtonStyle())
                 .disabled(scriptName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -1562,16 +1491,160 @@ struct AddScriptView: View {
         .frame(width: 400)
         .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
         .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                isFocused = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { isNameFocused = true }
+        }
+    }
+}
+
+struct EditView: View {
+    let assignment: Assignment
+    @Binding var isPresented: Bool
+    @EnvironmentObject var settings: SettingsManager
+    
+    var body: some View {
+        switch assignment.configuration.target {
+        case .app(let name, let bundleId):
+            EditAppView(assignmentID: assignment.id, initialName: name, bundleId: bundleId, isPresented: $isPresented)
+        case .url(let name, let address):
+            EditURLView(assignmentID: assignment.id, initialName: name, initialURL: address, isPresented: $isPresented)
+        case .file(let name, let path):
+            EditFileView(assignmentID: assignment.id, initialName: name, initialPath: path, isPresented: $isPresented)
+        case .script(let name, let command, let runsInTerminal):
+            EditScriptView(assignmentID: assignment.id, initialName: name, initialCommand: command, initialRunsInTerminal: runsInTerminal, isPresented: $isPresented)
+        case .shortcut(let name, let executionName):
+            EditShortcutView(assignmentID: assignment.id, initialName: name, executionName: executionName, isPresented: $isPresented)
+        }
+    }
+}
+
+struct EditAppView: View {
+    let assignmentID: UUID
+    let bundleId: String
+    @Binding var isPresented: Bool
+    @EnvironmentObject var settings: SettingsManager
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var name: String
+    @FocusState private var isFocused: Bool
+
+    init(assignmentID: UUID, initialName: String, bundleId: String, isPresented: Binding<Bool>) {
+        self.assignmentID = assignmentID
+        self.bundleId = bundleId
+        self._isPresented = isPresented
+        _name = State(initialValue: initialName)
+    }
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Edit App Shortcut").font(.title2.weight(.bold))
+            TextField("Name", text: $name).textFieldStyle(.roundedBorder).focused($isFocused)
+            Text(bundleId).font(.caption).foregroundColor(.secondary).truncationMode(.middle)
+            HStack(spacing: 12) {
+                Button("Cancel", role: .cancel) { isPresented = false }.buttonStyle(PillButtonStyle())
+                Spacer()
+                Button("Save") {
+                    let newTarget = ShortcutTarget.app(name: name, bundleId: bundleId)
+                    settings.updateAssignmentContent(id: assignmentID, newTarget: newTarget)
+                    isPresented = false
+                }.buttonStyle(PillButtonStyle()).disabled(name.isEmpty)
             }
+        }.padding().frame(width: 400).foregroundColor(AppTheme.primaryTextColor(for: colorScheme)).onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { isFocused = true }
+        }
+    }
+}
+
+struct EditURLView: View {
+    let assignmentID: UUID
+    @Binding var isPresented: Bool
+    @EnvironmentObject var settings: SettingsManager
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var name: String
+    @State private var urlString: String
+    @FocusState private var isFocused: Bool
+
+    init(assignmentID: UUID, initialName: String, initialURL: String, isPresented: Binding<Bool>) {
+        self.assignmentID = assignmentID
+        self._isPresented = isPresented
+        _name = State(initialValue: initialName)
+        _urlString = State(initialValue: initialURL)
+    }
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Edit URL Shortcut").font(.title2.weight(.bold))
+            TextField("Name", text: $name).textFieldStyle(.roundedBorder).focused($isFocused)
+            URLTextField(text: $urlString).frame(height: 22)
+            HStack(spacing: 12) {
+                Button("Cancel", role: .cancel) { isPresented = false }.buttonStyle(PillButtonStyle())
+                Spacer()
+                Button("Save") {
+                    let finalName = name.isEmpty ? (URL(string: urlString)?.host ?? "Link") : name
+                    let newTarget = ShortcutTarget.url(name: finalName, address: urlString)
+                    settings.updateAssignmentContent(id: assignmentID, newTarget: newTarget)
+                    isPresented = false
+                }.buttonStyle(PillButtonStyle()).disabled(!isValidURL())
+            }
+        }.padding().frame(width: 400).foregroundColor(AppTheme.primaryTextColor(for: colorScheme)).onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { isFocused = true }
+        }
+    }
+
+    private func isValidURL() -> Bool {
+        guard let url = URL(string: urlString) else { return false }
+        return url.scheme == "http" || url.scheme == "https"
+    }
+}
+
+struct EditFileView: View {
+    let assignmentID: UUID
+    @Binding var isPresented: Bool
+    @EnvironmentObject var settings: SettingsManager
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var name: String
+    @State private var path: String
+    @FocusState private var isFocused: Bool
+
+    init(assignmentID: UUID, initialName: String, initialPath: String, isPresented: Binding<Bool>) {
+        self.assignmentID = assignmentID
+        self._isPresented = isPresented
+        _name = State(initialValue: initialName)
+        _path = State(initialValue: initialPath)
+    }
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Edit File Shortcut").font(.title2.weight(.bold))
+            TextField("Name", text: $name).textFieldStyle(.roundedBorder).focused($isFocused)
+            HStack {
+                Text(path).font(.caption).foregroundColor(.secondary).truncationMode(.middle)
+                Spacer()
+                Button("Browse...") {
+                    let panel = NSOpenPanel(); panel.canChooseFiles = true; panel.canChooseDirectories = true
+                    if panel.runModal() == .OK, let url = panel.url {
+                        self.path = url.path
+                        if name.isEmpty {
+                            self.name = url.lastPathComponent
+                        }
+                    }
+                }
+            }
+            HStack(spacing: 12) {
+                Button("Cancel", role: .cancel) { isPresented = false }.buttonStyle(PillButtonStyle())
+                Spacer()
+                Button("Save") {
+                    let newTarget = ShortcutTarget.file(name: name, path: path)
+                    settings.updateAssignmentContent(id: assignmentID, newTarget: newTarget)
+                    isPresented = false
+                }.buttonStyle(PillButtonStyle()).disabled(name.isEmpty || path.isEmpty)
+            }
+        }.padding().frame(width: 400).foregroundColor(AppTheme.primaryTextColor(for: colorScheme)).onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { isFocused = true }
         }
     }
 }
 
 struct EditScriptView: View {
     let assignmentID: UUID
-    var onSave: (UUID, String, String, Bool) -> Void
     @Binding var isPresented: Bool
     @EnvironmentObject var settings: SettingsManager
     @Environment(\.colorScheme) private var colorScheme
@@ -1580,9 +1653,8 @@ struct EditScriptView: View {
     @State private var runsInTerminal: Bool
     @FocusState private var isFocused: Bool
 
-    init(assignmentID: UUID, initialName: String, initialCommand: String, initialRunsInTerminal: Bool, onSave: @escaping (UUID, String, String, Bool) -> Void, isPresented: Binding<Bool>) {
+    init(assignmentID: UUID, initialName: String, initialCommand: String, initialRunsInTerminal: Bool, isPresented: Binding<Bool>) {
         self.assignmentID = assignmentID
-        self.onSave = onSave
         self._isPresented = isPresented
         _name = State(initialValue: initialName)
         _command = State(initialValue: initialCommand)
@@ -1592,31 +1664,64 @@ struct EditScriptView: View {
     var body: some View {
         VStack(spacing: 20) {
             Text("Edit Script Shortcut").font(.title2.weight(.bold))
-            
-            TextField("Script Name", text: $name)
-                .textFieldStyle(.roundedBorder)
-
+            TextField("Script Name", text: $name).textFieldStyle(.roundedBorder).focused($isFocused)
             TextEditor(text: $command)
                 .font(.system(.body, design: .monospaced))
                 .scrollContentBackground(.hidden)
                 .background(AppTheme.pillBackgroundColor(for: colorScheme, theme: settings.appTheme).opacity(0.5))
                 .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
                 .frame(height: 100)
-                .focused($isFocused)
-
             Toggle(isOn: $runsInTerminal) { Text("Show in a new Terminal window") }.toggleStyle(.checkbox)
             HStack(spacing: 12) {
                 Button("Cancel", role: .cancel) { isPresented = false }.buttonStyle(PillButtonStyle())
                 Spacer()
-                Button("Save") { onSave(assignmentID, name, command, runsInTerminal); isPresented = false }
-                    .buttonStyle(PillButtonStyle())
-                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                Button("Save") {
+                    let newTarget = ShortcutTarget.script(name: name, command: command, runsInTerminal: runsInTerminal)
+                    settings.updateAssignmentContent(id: assignmentID, newTarget: newTarget)
+                    isPresented = false
+                }.buttonStyle(PillButtonStyle()).disabled(name.isEmpty || command.isEmpty)
             }
         }
         .padding()
         .frame(width: 400)
         .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
         .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { isFocused = true }
+        }
+    }
+}
+
+struct EditShortcutView: View {
+    let assignmentID: UUID
+    let executionName: String
+    @Binding var isPresented: Bool
+    @EnvironmentObject var settings: SettingsManager
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var name: String
+    @FocusState private var isFocused: Bool
+
+    init(assignmentID: UUID, initialName: String, executionName: String, isPresented: Binding<Bool>) {
+        self.assignmentID = assignmentID
+        self.executionName = executionName
+        self._isPresented = isPresented
+        _name = State(initialValue: initialName)
+    }
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Edit macOS Shortcut").font(.title2.weight(.bold))
+            TextField("Display Name", text: $name).textFieldStyle(.roundedBorder).focused($isFocused)
+            Text("Executes: \(executionName)").font(.caption).foregroundColor(.secondary)
+            HStack(spacing: 12) {
+                Button("Cancel", role: .cancel) { isPresented = false }.buttonStyle(PillButtonStyle())
+                Spacer()
+                Button("Save") {
+                    let newTarget = ShortcutTarget.shortcut(name: name, executionName: executionName)
+                    settings.updateAssignmentContent(id: assignmentID, newTarget: newTarget)
+                    isPresented = false
+                }.buttonStyle(PillButtonStyle()).disabled(name.isEmpty)
+            }
+        }.padding().frame(width: 400).foregroundColor(AppTheme.primaryTextColor(for: colorScheme)).onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { isFocused = true }
         }
     }
@@ -1662,7 +1767,7 @@ var body: some View {
             ScrollView {
                 LazyVStack(spacing: 2) {
                     ForEach(filteredShortcuts, id: \.self) { shortcutName in
-                        Button(action: { onSave(shortcutName); showingSheet = nil }) {
+                        Button(action: { onSave(shortcutName) }) {
                             HStack {
                                 Text(shortcutName)
                                 Spacer()
@@ -1709,6 +1814,7 @@ struct FooterView: View {
 @State private var isShowingClearConfirmation = false
 var onShowHelp: () -> Void
 var onShowAppSettings: () -> Void
+var onAddFile: () -> Void
 @Binding var sheetType: SheetType?
 private let donationURL = URL(string: "https://www.patreon.com/MusaMatini")!
 
@@ -1719,14 +1825,7 @@ var body: some View {
                 Button("Add App") { sheetType = .addApp }
                 Button("Add macOS Shortcut") { sheetType = .addShortcut }
                 Button("Add URL") { sheetType = .addURL }
-                Button("Add File/Folder") {
-                    let panel = NSOpenPanel()
-                    panel.canChooseFiles = true
-                    panel.canChooseDirectories = true
-                    if panel.runModal() == .OK, let url = panel.url {
-                        manager.startRecording(for: .create(target: .file(url.path)))
-                    }
-                }
+                Button("Add File/Folder") { onAddFile() }
                 Button("Add Script") { sheetType = .addScript }
             } label: {
                 HStack(spacing: 8) {
