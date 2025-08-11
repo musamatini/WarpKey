@@ -2,7 +2,7 @@
 
 # 🎉 WrapKey: Your Mac's Productivity Power-Up! 🚀
 
-### The Ultimate Hotkey Manager for Your Apps, Files, URLs, Scripts, and More.
+### The Ultimate MacOS Launcher for Your Apps, Files, URLs, Scripts, and More.
 
 ![Platform](https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white)
 ![Made with Swift](https://img.shields.io/badge/Made%20with-Swift-F05138?style=flat-square&logo=Swift&logoColor=white)
