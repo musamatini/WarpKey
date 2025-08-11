@@ -14,12 +14,6 @@ WrapKey is a lightweight yet powerful macOS utility that puts your entire digita
 
 <!-- ![WrapKey Demo GIF](path to it) -->
 
-Of course, bro! I've analyzed the Swift code and filled in the `//todo` sections for you. The app has some really neat features!
-
-Here are the completed sections for your README.md.
-
----
-
 ## ✨ Core Features
 
 *   **⌨️ All Kinds of Hotkeys:** Create shortcuts for almost anything. If you can point to it, you can probably make a hotkey for it.
