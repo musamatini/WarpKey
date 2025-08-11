@@ -10,7 +10,7 @@
 ![Downloads](https://img.shields.io/github/downloads/musamatini/WrapKey/total?style=flat-square&logo=arrow-down-circle&color=brightgreen)
 ![Stars](https://img.shields.io/github/stars/musamatini/WrapKey?style=flat-square&logo=star&color=gold)
 
-WrapKey is a lightweight yet powerful macOS utility that puts your entire digital life at your fingertips. Create simple, memorable, or complex keyboard shortcuts to launch, switch, or run virtually anything on your Mac. It's designed to be blazing-fast and intuitive, running discreetly from your menu bar to keep you in your creative flow.
+WrapKey is a lightweight yet powerful macOS utility. Create simple, memorable, or complex keyboard shortcuts to launch, switch, or run anything on your Mac. It's designed to be blazing-fast and intuitive.
 
 <!-- ![WrapKey Demo GIF](path to it) -->
 
