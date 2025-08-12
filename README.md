@@ -12,7 +12,6 @@
 
 WrapKey is a lightweight yet powerful macOS utility. Create simple, memorable, or complex keyboard shortcuts to launch, switch, or run anything on your Mac. It's designed to be blazing-fast and intuitive.
 
-<!-- ![WrapKey Demo GIF](path to it) -->
 
 ## ✨ Core Features
 
