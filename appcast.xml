@@ -8,7 +8,7 @@
     <item>
         <title>Version 2.0.0 - The Ultimate WarpKey Update!</title>
         <pubDate>Fri, 22 Aug 2025 23:10:00 +0000</pubDate>
-        <sparkle:releaseNotesLink>
+        <description>
             <![CDATA[
                 <h4>A New Identity</h4>
                 <ul>
@@ -26,7 +26,7 @@
                     <li><strong>Critical Fix:</strong> Reverted a change that broke the detection of Caps Lock and special function keys (like brightness/volume). These hotkeys now work reliably again.</li>
                 </ul>
             ]]>
-        </sparkle:releaseNotesLink>
+        </description>
         <enclosure
               url="https://github.com/musamatini/WarpKey/releases/download/v1.1.5/WarpKey-Universal-Stable-v1.1.5.zip"
               sparkle:version="15"
