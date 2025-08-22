@@ -11,7 +11,7 @@
 	<key>SUFeedURL</key>
 	<string>https://raw.githubusercontent.com/musamatini/WarpKey/main/appcast.xml</string>
 	<key>SUPublicEDKey</key>
-	<string>4+pNFsJqz04YHTamagU/Dp/aOfYKWAcH/0Lx2mSnNuY=</string>
+	<string>DiCy6nySdgvd1YxMooOm8I9I3tFIr9H2OJrEb6LdEYU=</string>
 	<key>SUPersededBundleIdentifiers</key>
 	<array>
 		<string>com.musamatini.WrapKey</string>
