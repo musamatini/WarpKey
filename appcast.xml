@@ -2,22 +2,52 @@
 <rss version="2.0" xmlns:sparkle="http://www.sparkle-project.org/xml-namespaces/sparkle">
   <channel>
     <title>WarpKey Changelog</title>
-    <link>https://raw.githubusercontent.com/musamatini/WrapKey/main/appcast.xml</link>
+    <link>https://raw.githubusercontent.com/musamatini/WarpKey/main/appcast.xml</link>
     <description>Most recent changes with links to updates.</description>
     <language>en</language>
+    <item>
+        <title>Version 2.0.0 - The Ultimate WarpKey Update!</title>
+        <pubDate>Fri, 22 Aug 2025 23:10:00 +0000</pubDate>
+        <sparkle:releaseNotesLink>
+            <![CDATA[
+                <h4>A New Identity</h4>
+                <ul>
+                    <li>By popular request, WrapKey has been officially renamed to <strong>WarpKey</strong>! This update completes the transition.</li>
+                </ul>
+                <h4>✨ New & Exclusive Features</h4>
+                <ul>
+                    <li><strong>Revolutionary Window Switching:</strong> WarpKey can now instantly switch to applications on <strong>other desktops (Spaces) and even those in fullscreen mode</strong>. This is a game-changing feature i didnt see it implemented even in premium, paid window switchers, making WarpKey one of the most powerful switchers available.</li>
+                    <li><strong>Full Keyboard Navigation:</strong> You can now navigate lists like the App and Shortcut pickers using your arrow keys and select with the Enter key. Power users, rejoice!</li>
+                </ul>
+                <h4>🛠️ Improvements & Fixes</h4>
+                <ul>
+                    <li>The "+ Add Shortcut" button is now highlighted with the theme's accent color, making it easier to find.</li>
+                    <li>Fixed an issue where some buttons (like in the recorder and segmented pickers) had small click areas. The entire button is now clickable.</li>
+                    <li><strong>Critical Fix:</strong> Reverted a change that broke the detection of Caps Lock and special function keys (like brightness/volume). These hotkeys now work reliably again.</li>
+                </ul>
+            ]]>
+        </sparkle:releaseNotesLink>
+        <enclosure
+              url="https://github.com/musamatini/WarpKey/releases/download/v1.1.5/WarpKey-Universal-Stable-v1.1.5.zip"
+              sparkle:version="15"
+              sparkle:shortVersionString="2.0.0"
+              length="3399708"
+              type="application/octet-stream"
+              sparkle:edSignature="ewcFRTryBk6wz2fyc7AGsbaXwxs4RCY9GpK1n32LKA8XokjYDSaf7b5JvuxXgonkcOn88xbPta5Cwr2ZQYFAAw==" />
+    </item>
     <item>
         <title>Version 1.1.6</title>
         <pubDate>Thu, 8 Aug 2025 18:20:00 +0300</pubDate>
         <description>
           <![CDATA[
-              <h3>What's New in WrapKey</h3>
+              <h3>What's New in WarpKey</h3>
               <ul>
                   <li><strong>Improvment: </strong>Can now rename all kinds of shortcuts!</li>
               </ul>
           ]]>
         </description>
         <enclosure
-          url="https://github.com/musamatini/WrapKey/releases/download/v1.1.6/WrapKey-Universal-Stable-v1.1.6.zip"
+          url="https://github.com/musamatini/WarpKey/releases/download/v1.1.6/WarpKey-Universal-Stable-v1.1.6.zip"
           sparkle:version="14"
           sparkle:shortVersionString="1.1.6"
           length="3284618"
@@ -29,14 +59,14 @@
         <pubDate>Thu, 6 Aug 2025 02:20:00 +0300</pubDate>
         <description>
           <![CDATA[
-              <h3>What's New in WrapKey</h3>
+              <h3>What's New in WarpKey</h3>
               <ul>
                   <li><strong>Improvment:</strong>Can name scripts now!</li>
               </ul>
           ]]>
         </description>
         <enclosure
-          url="https://github.com/musamatini/WrapKey/releases/download/v1.1.5/WrapKey-Universal-Stable-v1.1.5.zip"
+          url="https://github.com/musamatini/WarpKey/releases/download/v1.1.5/WarpKey-Universal-Stable-v1.1.5.zip"
           sparkle:version="13"
           sparkle:shortVersionString="1.1.5"
           length="3267737"
@@ -48,7 +78,7 @@
       <pubDate>Thu, 6 Aug 2025 00:20:00 +0300</pubDate>
       <description>
         <![CDATA[
-            <h3>What's New in WrapKey</h3>
+            <h3>What's New in WarpKey</h3>
             <ul>
                 <li><strong>Bug Fix:</strong>Fixed the settings button in the menubar was not oppening the settings menu.</li>
                 <li><strong>Bug Fix:</strong>Fixed finder opens from mac home folder instead of what the user set in finder settings as defualt start folder.</li>
@@ -56,7 +86,7 @@
         ]]>
       </description>
       <enclosure
-        url="https://github.com/musamatini/WrapKey/releases/download/v1.1.4/WrapKey-Universal-Stable-v1.1.4.zip"
+        url="https://github.com/musamatini/WarpKey/releases/download/v1.1.4/WarpKey-Universal-Stable-v1.1.4.zip"
         sparkle:version="12"
         sparkle:shortVersionString="1.1.4"
         length="3247585"
@@ -68,14 +98,14 @@
       <pubDate>Thu, 5 Aug 2025 18:40:00 +0300</pubDate>
       <description>
         <![CDATA[
-            <h3>What's New in WrapKey</h3>
+            <h3>What's New in WarpKey</h3>
             <ul>
                 <li><strong>Bug Fix:</strong>Fixed cant use modifier alone keys as shortcuts.</li>
             </ul>
         ]]>
       </description>
       <enclosure
-        url="https://github.com/musamatini/WrapKey/releases/download/v1.1.3/WrapKey-Universal-Stable-v1.1.3.zip"
+        url="https://github.com/musamatini/WarpKey/releases/download/v1.1.3/WarpKey-Universal-Stable-v1.1.3.zip"
         sparkle:version="11"
         sparkle:shortVersionString="1.1.3"
         length="3245331"
@@ -87,14 +117,14 @@
       <pubDate>Thu, 5 Aug 2025 17:40:00 +0300</pubDate>
       <description>
         <![CDATA[
-            <h3>What's New in WrapKey</h3>
+            <h3>What's New in WarpKey</h3>
             <ul>
                 <li><strong>Bug Fix:</strong>Fixed a bug where the recording overlay for quick assign dosent appear.</li>
             </ul>
         ]]>
       </description>
       <enclosure
-        url="https://github.com/musamatini/WrapKey/releases/download/v1.1.2/WrapKey-Universal-Stable-v1.1.2.zip"
+        url="https://github.com/musamatini/WarpKey/releases/download/v1.1.2/WarpKey-Universal-Stable-v1.1.2.zip"
         sparkle:version="10"
         sparkle:shortVersionString="1.1.2"
         length="3248754"
@@ -106,17 +136,17 @@
       <pubDate>Thu, 5 Aug 2025 11:40:00 +0300</pubDate>
       <description>
         <![CDATA[
-            <h3>What's New in WrapKey</h3>
+            <h3>What's New in WarpKey</h3>
             <ul>
                 <li><strong>Bug Fix:</strong> Made the quick assign and cheasheet shortcuts give a warning if conflicting with any other shortcuts.</li>
-                <li><strong>Bug Fix:</strong> The quick assign feature werent working on the WrapKey app itself.</li>
+                <li><strong>Bug Fix:</strong> The quick assign feature werent working on the WarpKey app itself.</li>
                 <li><strong>Bug Fix:</strong> Made the welcome window apear before the accessibility permssion widnow on first start.</li>
                 <li><strong>Improvement:</strong> Made animations look better! </li>
             </ul>
         ]]>
       </description>
       <enclosure
-        url="https://github.com/musamatini/WrapKey/releases/download/v1.1.1/WrapKey-Universal-Stable-v1.1.1.zip"
+        url="https://github.com/musamatini/WarpKey/releases/download/v1.1.1/WarpKey-Universal-Stable-v1.1.1.zip"
         sparkle:version="9"
         sparkle:shortVersionString="1.1.1"
         length="3247776"
@@ -128,7 +158,7 @@
       <pubDate>Thu, 5 Aug 2025 00:40:00 +0300</pubDate>
       <description>
         <![CDATA[
-            <h3>What's New in WrapKey</h3>
+            <h3>What's New in WarpKey</h3>
             <ul>
                 <li><strong>Bug Fix:</strong> Fixed an issue where some apps (especially those that hide in the menu bar) wouldn't open on the first launch. Triggering the shortcut a second time now correctly opens them.</li>
                 <li><strong>New Feature:</strong> Quickly assign apps by triggering a global shortcut, which can be configured in settings.</li>
@@ -139,7 +169,7 @@
         ]]>
       </description>
       <enclosure
-        url="https://github.com/musamatini/WrapKey/releases/download/v1.1.0/WrapKey-Universal-Stable-v1.1.0.zip"
+        url="https://github.com/musamatini/WarpKey/releases/download/v1.1.0/WarpKey-Universal-Stable-v1.1.0.zip"
         sparkle:version="8"
         sparkle:shortVersionString="1.1.0"
         length="3231713"
@@ -151,7 +181,7 @@
       <pubDate>Thu, 2 Aug 2025 18:50:00 +0300</pubDate>
       <description>
         <![CDATA[
-            <h3>What's New in WrapKey</h3>
+            <h3>What's New in WarpKey</h3>
             <ul>
                 <li><strong>Fixed - Launch at Login:</strong> Resolved an issue that prevented the "Launch at Login" setting from working correctly.</li>
                 <li><strong>Fixed - Brightness Keys:</strong> Addressed a bug where the functions row keys were not functioning.</li>
@@ -160,7 +190,7 @@
         ]]>
       </description>
       <enclosure
-        url="https://github.com/musamatini/WrapKey/releases/download/v1.0.6/WrapKey-Universal-Stable-v1.0.6.zip"
+        url="https://github.com/musamatini/WarpKey/releases/download/v1.0.6/WarpKey-Universal-Stable-v1.0.6.zip"
         sparkle:version="7"
         sparkle:shortVersionString="1.0.6"
         length="3165507"
@@ -172,7 +202,7 @@
       <pubDate>Thu, 31 Jul 2025 11:30:00 +0300</pubDate>
       <description>
         <![CDATA[
-            <h3>What's New in WrapKey</h3>
+            <h3>What's New in WarpKey</h3>
             <ul>
               <li><strong>Bug Fixes:</strong> Addressed several bugs that caused the app to freeze, especially when using the cycle feature.</li>
               <li><strong>New Features:</strong> Added a Cheatsheet (adjust its shortcut in settings). Reworked the shortcut system: removed trigger/secondary keys in favor of assigning any shortcut to any app via the menu.</li>
@@ -180,7 +210,7 @@
         ]]>
       </description>
       <enclosure
-        url="https://github.com/musamatini/WrapKey/releases/download/v1.0.5/WrapKey-Universal-Stable-v1.0.5.zip"
+        url="https://github.com/musamatini/WarpKey/releases/download/v1.0.5/WarpKey-Universal-Stable-v1.0.5.zip"
         sparkle:version="6"
         sparkle:shortVersionString="1.0.5"
         length="3155318"
@@ -192,7 +222,7 @@
       <pubDate>Thu, 31 Jul 2025 11:30:00 +0300</pubDate>
       <description>
         <![CDATA[
-            <h3>What's New in WrapKey</h3>
+            <h3>What's New in WarpKey</h3>
             <ul>
               <li><strong>App Assignment Fixed:</strong> Resolved a critical bug where the hotkey for assigning new apps was not being recognized.</li>
               <li><strong>Improved Collision Logic:</strong> The app now correctly prevents a key from being used in multiple trigger groups simultaneously.</li>
@@ -200,7 +230,7 @@
         ]]>
       </description>
       <enclosure
-        url="https://github.com/musamatini/WrapKey/releases/download/v1.0.4/WrapKey-Universal-Stable-v1.0.4.zip"
+        url="https://github.com/musamatini/WarpKey/releases/download/v1.0.4/WarpKey-Universal-Stable-v1.0.4.zip"
         sparkle:version="5"
         sparkle:shortVersionString="1.0.4"
         length="3150868"
@@ -212,7 +242,7 @@
       <pubDate>Thu, 31 Jul 2025 06:30:00 +0300</pubDate>
       <description>
         <![CDATA[
-            <h3>What's New in WrapKey 1.0.3</h3>
+            <h3>What's New in WarpKey 1.0.3</h3>
             <ul>
                 <li><strong>New Menu Bar Launcher:</strong> The menu bar icon now opens a quick-launch menu to run your shortcuts directly.</li>
                 <li><strong>Hotkey-Optional Shortcuts:</strong> You can now create shortcuts without assigning a hotkey, making them accessible from the new menu.</li>
@@ -221,7 +251,7 @@
         ]]>
       </description>
       <enclosure
-        url="https://github.com/musamatini/WrapKey/releases/download/v1.0.3/WrapKey-Universal-Stable-v1.0.3.zip"
+        url="https://github.com/musamatini/WarpKey/releases/download/v1.0.3/WarpKey-Universal-Stable-v1.0.3.zip"
         sparkle:version="4"
         sparkle:shortVersionString="1.0.3"
         length="3153540"
@@ -244,7 +274,7 @@
         ]]>
       </description>
       <enclosure
-        url="https://github.com/musamatini/WrapKey/releases/download/v1.0.2/WrapKey-Universal-Stable-v1.0.2.zip"
+        url="https://github.com/musamatini/WarpKey/releases/download/v1.0.2/WarpKey-Universal-Stable-v1.0.2.zip"
         sparkle:version="3"
         sparkle:shortVersionString="1.0.2"
         length="3110727"
@@ -263,7 +293,7 @@
           </description>
           <pubDate>Tue, 21 May 2025 10:00:00 +0000</pubDate>
           <enclosure
-            url="https://github.com/musamatini/WrapKey/releases/download/v1.0.1/WrapKey-Universal-Stable-v1.0.1.zip"
+            url="https://github.com/musamatini/WarpKey/releases/download/v1.0.1/WarpKey-Universal-Stable-v1.0.1.zip"
             sparkle:version="2"
             sparkle:shortVersionString="1.0.1"
             length="2957368"
