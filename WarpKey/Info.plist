@@ -3,14 +3,18 @@
 <plist version="1.0">
 <dict>
 	<key>NSAccessibilityUsageDescription</key>
-	<string>WrapKey needs permission to control other applications in order to assign, show, and hide them with your custom hotkeys.</string>
+	<string>WarpKey needs permission to control other applications in order to assign, show, and hide them with your custom hotkeys.</string>
 	<key>NSUserLoginItemUsageDescription</key>
-	<string>WrapKey needs to run automatically at login to keep your hotkeys available.</string>
+	<string>WarpKey needs to run automatically at login to keep your hotkeys available.</string>
 	<key>NSUserNotificationsUsageDescription</key>
-	<string>WrapKey sends notifications to confirm when a new hotkey has been successfully assigned.</string>
+	<string>WarpKey sends notifications to confirm when a new hotkey has been successfully assigned.</string>
 	<key>SUFeedURL</key>
-	<string>https://raw.githubusercontent.com/musamatini/WrapKey/main/appcast.xml</string>
+	<string>https://raw.githubusercontent.com/musamatini/WarpKey/main/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>DiCy6nySdgvd1YxMooOm8I9I3tFIr9H2OJrEb6LdEYU=</string>
+	<key>SUPersededBundleIdentifiers</key>
+	<array>
+		<string>com.musamatini.WrapKey</string>
+	</array>
 </dict>
 </plist>
