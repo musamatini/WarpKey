@@ -152,10 +152,7 @@
 			mainGroup = D0509E4E2E1A754C00AC3CAC;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				D0B157A42E25AAFA00BFFA08 /* XCLocalSwiftPackageReference "../../../Downloads/Glur-main" */,
-				D0B157A72E25B30E00BFFA08 /* XCLocalSwiftPackageReference "../../../Downloads/BlurView-main" */,
 				D02170F52E3A07BB0073BE65 /* XCRemoteSwiftPackageReference "Sparkle" */,
-				D02170F62E3A0A380073BE65 /* XCRemoteSwiftPackageReference "kayishort" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D0509E582E1A754D00AC3CAC /* Products */;
@@ -416,17 +413,6 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCLocalSwiftPackageReference section */
-		D0B157A42E25AAFA00BFFA08 /* XCLocalSwiftPackageReference "../../../Downloads/Glur-main" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = "../../../Downloads/Glur-main";
-		};
-		D0B157A72E25B30E00BFFA08 /* XCLocalSwiftPackageReference "../../../Downloads/BlurView-main" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = "../../../Downloads/BlurView-main";
-		};
-/* End XCLocalSwiftPackageReference section */
-
 /* Begin XCRemoteSwiftPackageReference section */
 		D02170F52E3A07BB0073BE65 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -434,14 +420,6 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 2.7.1;
-			};
-		};
-		D02170F62E3A0A380073BE65 /* XCRemoteSwiftPackageReference "kayishort" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/kayisoft/kayishort";
-			requirement = {
-				branch = master;
-				kind = branch;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
