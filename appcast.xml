@@ -6,7 +6,7 @@
     <description>Most recent changes with links to updates.</description>
     <language>en</language>
     <item>
-        <title>Version 2.1.0 - Introducing Snippets!</title>
+        <title>Version 2.0.2 - Introducing Snippets!</title>
         <pubDate>Sat, 23 Aug 2025 19:10:00 +0300</pubDate>
         <description>
             <![CDATA[
@@ -19,7 +19,7 @@
         <enclosure
               url="https://github.com/musamatini/WarpKey/releases/download/v2.1.0/WarpKey-Universal-Stable-v2.1.0.zip"
               sparkle:version="17"
-              sparkle:shortVersionString="2.1.0"
+              sparkle:shortVersionString="2.0.2"
               length="3425133"
               type="application/octet-stream"
               sparkle:edSignature="OlpuT2aiNZL3cvZzYhcFxYI45pFj8RgPyE3tjqlZeTZT8LNiP0aBGiEwSOCG5E155oWD1Eqn7vVisfmfBdQIDw==" />
