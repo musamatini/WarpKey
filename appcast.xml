@@ -5,34 +5,7 @@
     <link>https://raw.githubusercontent.com/musamatini/WarpKey/main/appcast.xml</link>
     <description>Most recent changes with links to updates.</description>
     <language>en</language>
-    <item>
-        <title>Version 2.0.1 - Polish and Stability Update</title>
-        <pubDate>Sat, 23 Aug 2025 12:30:00 +0300</pubDate>
-        <description>
-            <![CDATA[
-                <h4>✨ UI & UX Polish</h4>
-                <ul>
-                    <li><strong>Native macOS Icons:</strong> Shortcuts for files, folders, scripts, and macOS Shortcuts now use beautiful, native-style icons for a more integrated look.</li>
-                    <li><strong>Improved Hover Previews:</strong> Hovering over a long script in the shortcut list now shows much more of the script's content.</li>
-                    <li><strong>Better Button Hitboxes:</strong> Fixed an issue where some buttons (like in the recorder and segmented pickers) had small click areas. The entire button is now clickable.</li>
-                    <li>Removed the redundant "Settings..." link from the main app menu for a cleaner experience.</li>
-                </ul>
-                <h4>🛠️ Workflow Improvements & Fixes</h4>
-                <ul>
-                    <li><strong>Instant Hotkey Recording:</strong> Creating a new file, folder, or script shortcut now immediately prompts you to record a hotkey, streamlining the creation process.</li>
-                    <li><strong>Smarter Updates:</strong> Fixed a warning and improved the background update checker to use Sparkle's "gentle reminder" system correctly and respectfully.</li>
-                    <li><strong>Critical Stability Fix:</strong> Resolved a high-priority bug that could cause the app to crash when switching windows. The enhanced window switching is now both functional and thread-safe.</li>
-                </ul>
-            ]]>
-        </description>
-        <enclosure
-              url="https://github.com/musamatini/WarpKey/releases/download/v2.0.1/WarpKey-Universal-Stable-v2.0.1.zip"
-              sparkle:version="16"
-              sparkle:shortVersionString="2.0.1"
-              length="3395123"
-              type="application/octet-stream"
-              sparkle:edSignature="EqQBESUMZOZCW1qQdACAQZKQbqmPrh7lAGDKcXY00sAd6LZlC+KtTSJjMrtHBOEefW7A/TaHgs8exw1nZNeBBg==" />
-    </item>
+    
     <item>
         <title>Version 2.0.0 - The Ultimate WarpKey Update!</title>
         <pubDate>Fri, 22 Aug 2025 23:10:00 +0300</pubDate>
