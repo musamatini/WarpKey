@@ -68,7 +68,6 @@
                 </ul>
                 <h4>🛠️ Improvements & Fixes</h4>
                 <ul>
-                    <li>The "+ Add Shortcut" button is now highlighted with the theme's accent color, making it easier to find.</li>
                     <li>Fixed an issue where some buttons (like in the recorder and segmented pickers) had small click areas. The entire button is now clickable.</li>
                     <li><strong>Critical Fix:</strong> Reverted a change that broke the detection of Caps Lock and special function keys (like brightness/volume). These hotkeys now work reliably again.</li>
                 </ul>
