@@ -67,7 +67,6 @@ struct RootView: View {
         } message: {
             Text("Your settings have been migrated from the old app name, WrapKey, to the new WarpKey.")
             + Text("\n\nTo avoid confusion, you can remove the old 'WrapKey' entry from Accessibility in System Settings. This new version, 'WarpKey', will use its own entry.")
-            + Text("\n\nYou can now safely rename the app in your Applications folder from \"WrapKey.app\" to \"WarpKey.app\" if you wish.")
         }
     }
 }

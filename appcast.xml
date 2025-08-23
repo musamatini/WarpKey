@@ -6,6 +6,25 @@
     <description>Most recent changes with links to updates.</description>
     <language>en</language>
     <item>
+        <title>Version 2.1.0 - Introducing Snippets!</title>
+        <pubDate>Sat, 23 Aug 2025 12:50:00 +0300</pubDate>
+        <description>
+            <![CDATA[
+                <h4>🚀 New Feature: Snippets</h4>
+                    <ul>
+                        <li><strong>The text you want, Instantly:</strong> Create reusable text snippets and paste them anywhere in macOS with a dedicated hotkey.</li>
+                    </ul>
+            ]]>
+        </description>
+        <enclosure
+              url="https://github.com/musamatini/WarpKey/releases/download/v2.0.1/WarpKey-Universal-Stable-v2.0.1.zip"
+              sparkle:version="17"
+              sparkle:shortVersionString="2.1.0"
+              length="3425133"
+              type="application/octet-stream"
+              sparkle:edSignature="OlpuT2aiNZL3cvZzYhcFxYI45pFj8RgPyE3tjqlZeTZT8LNiP0aBGiEwSOCG5E155oWD1Eqn7vVisfmfBdQIDw==" />
+    </item>
+    <item>
         <title>Version 2.0.1 - Polish and Stability Update</title>
         <pubDate>Sat, 23 Aug 2025 12:50:00 +0300</pubDate>
         <description>
