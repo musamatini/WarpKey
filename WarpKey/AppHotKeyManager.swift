@@ -6,6 +6,8 @@ import CoreGraphics
 import Combine
 import Carbon.HIToolbox
 import ApplicationServices
+import CoreServices
+import UniformTypeIdentifiers
 
 fileprivate enum InternalShortcutID: String {
     case cheatsheet = "dev.WarpKey.internal.cheatsheet"
@@ -50,24 +52,63 @@ enum ShortcutTarget: Hashable {
         }
     }
     
+    private func generateShortcutIcon(forName name: String, size: NSSize) -> NSImage {
+        let colors: [Color] = [
+            .red, .orange, .yellow, .green, .mint, .teal, .cyan, .blue, .indigo,
+            .purple, .pink, .brown
+        ]
+        
+        let colorIndex = abs(name.hashValue) % colors.count
+        let backgroundColor = colors[colorIndex]
+        
+        let firstLetter = String(name.first ?? "?").uppercased()
+
+        let iconView = ZStack {
+            RoundedRectangle(cornerRadius: size.width * 0.22, style: .continuous)
+                .fill(backgroundColor)
+            
+            Text(firstLetter)
+                .font(.system(size: size.width * 0.6, weight: .medium, design: .rounded))
+                .foregroundColor(.white)
+        }
+        .frame(width: size.width, height: size.height)
+        
+        let hostingView = NSHostingView(rootView: iconView)
+        hostingView.frame = CGRect(origin: .zero, size: size)
+        
+        let bitmap = hostingView.bitmapImageRepForCachingDisplay(in: hostingView.bounds)!
+        hostingView.cacheDisplay(in: hostingView.bounds, to: bitmap)
+        
+        let image = NSImage(size: size)
+        image.addRepresentation(bitmap)
+        return image
+    }
+
     func getIcon(using manager: AppHotKeyManager, size: NSSize = NSSize(width: 18, height: 18)) -> NSImage? {
         let image: NSImage?
         switch self {
         case .app(_, let bundleId):
             image = manager.getAppIcon(for: bundleId)
+            
         case .url:
-            image = NSImage(systemSymbolName: "globe", accessibilityDescription: "URL")
-        case .file:
-            image = NSImage(systemSymbolName: "doc", accessibilityDescription: "File")
+            image = NSImage(systemSymbolName: "link", accessibilityDescription: "URL")
+            
+        case .file(_, let path):
+            image = NSWorkspace.shared.icon(forFile: path)
+            
         case .script:
-            image = NSImage(systemSymbolName: "terminal", accessibilityDescription: "Script")
-        case .shortcut:
-            image = NSImage(systemSymbolName: "square.stack.3d.up.fill", accessibilityDescription: "Shortcut")
+            image = NSImage(systemSymbolName: "terminal.fill", accessibilityDescription: "Script")
+            
+        case .shortcut(let name, _):
+            image = generateShortcutIcon(forName: name, size: size)
         }
+        
         image?.size = size
-        if self.category != .app {
+        
+        if self.category == .url || self.category == .script {
             image?.isTemplate = true
         }
+        
         return image
     }
 }
@@ -815,7 +856,10 @@ class AppHotKeyManager: ObservableObject {
                 }
                 
                 if let windowToFocus = WindowFocusManager.findWindow(for: app.processIdentifier) {
-                    windowToFocus.focus()
+                    // This is a UI-related action, so it must be on the main thread.
+                    DispatchQueue.main.async {
+                        windowToFocus.focus()
+                    }
                 } else {
                     print("Could not find a specific window for \(appName), using simple activation.")
                     DispatchQueue.main.async { app.activate(options: [.activateIgnoringOtherApps]) }

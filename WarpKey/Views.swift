@@ -291,7 +291,7 @@ struct MainTabView: View {
     @Environment(\.openURL) private var openURL
 
     @State private var selectedTab: AppPage
-    private let githubURL = URL(string: "https://github.com/musamatini/WrapKey")!
+    private let githubURL = URL(string: "https://github.com/musamatini/WarpKey")!
 
     init(manager: AppHotKeyManager, launchManager: LaunchAtLoginManager, updaterViewModel: UpdaterViewModel, initialTab: AppPage) {
         self.manager = manager
@@ -361,7 +361,7 @@ struct MainTabView: View {
                         }
                         Button(action: { openURL(githubURL) }) {
                              HStack {
-                                Text("WrapKey").font(.headline).fontWeight(.semibold)
+                                Text("WarpKey").font(.headline).fontWeight(.semibold)
                                 KeyboardHint(key: "G")
                             }
                         }
@@ -372,7 +372,7 @@ struct MainTabView: View {
                 case .help:
                     Text("How to Use").font(.headline)
                 case .appSettings:
-                    Text("WrapKey Settings").font(.headline)
+                    Text("WarpKey Settings").font(.headline)
                 case .welcome:
                     EmptyView()
                 }
@@ -404,7 +404,6 @@ struct MainSettingsView: View {
     @State private var showingSheet: SheetType?
     @State private var assignmentForEditOptions: Assignment?
     @State private var isShowingEditOptionsDialog = false
-    @State private var recordHotKeyForAssignmentId: UUID?
 
     private var categorizedAssignments: [ShortcutCategory: [Assignment]] {
         Dictionary(grouping: settings.currentProfile.wrappedValue.assignments) { $0.configuration.target.category }
@@ -427,10 +426,7 @@ struct MainSettingsView: View {
         if panel.runModal() == .OK, let url = panel.url {
             let name = url.lastPathComponent
             let target = ShortcutTarget.file(name: name, path: url.path)
-            let newAssignment = Assignment(shortcut: [], configuration: .init(target: target))
-            settings.addAssignment(newAssignment)
-            self.recordHotKeyForAssignmentId = newAssignment.id
-            self.showingSheet = .edit(assignment: newAssignment)
+            manager.startRecording(for: .create(target: target))
         }
     }
 
@@ -496,10 +492,8 @@ struct MainSettingsView: View {
             case .addScript:
                 AddScriptView(onSave: { name, command, runsInTerminal in
                     let target = ShortcutTarget.script(name: name, command: command, runsInTerminal: runsInTerminal)
-                    let newAssignment = Assignment(shortcut: [], configuration: .init(target: target))
-                    settings.addAssignment(newAssignment)
-                    recordHotKeyForAssignmentId = newAssignment.id
-                    showingSheet = .edit(assignment: newAssignment)
+                    manager.startRecording(for: .create(target: target))
+                    showingSheet = nil
                 }, showingSheet: $showingSheet)
             case .edit(let assignment):
                 EditView(
@@ -508,16 +502,6 @@ struct MainSettingsView: View {
                 )
             case .none:
                 EmptyView()
-            }
-        }
-        .onChange(of: showingSheet) { newValue in
-            if newValue == nil, let assignmentId = recordHotKeyForAssignmentId {
-                if let assignmentToRecord = settings.currentProfile.wrappedValue.assignments.first(where: { $0.id == assignmentId }) {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                        manager.startRecording(for: .edit(assignmentID: assignmentToRecord.id, target: assignmentToRecord.configuration.target))
-                    }
-                }
-                recordHotKeyForAssignmentId = nil
             }
         }
         .id(showingSheet?.id)
@@ -856,7 +840,7 @@ struct CheatsheetView: View {
                 .onTapGesture { hide() }
 
             VStack(spacing: 0) {
-                Text("WrapKey Shortcuts Cheatsheet")
+                Text("WarpKey Shortcuts Cheatsheet")
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                     .padding()
                 
@@ -936,7 +920,7 @@ struct PermissionsRestartRequiredView: View {
                     Image(systemName: "lock.shield.fill").font(.system(size: 50, weight: .bold)).symbolRenderingMode(.monochrome).foregroundStyle(AppTheme.accentColor1(for: colorScheme, theme: settings.appTheme))
                     Text("Accessibility Access Required").font(.system(size: 28, weight: .bold, design: .rounded))
                 }
-                Text("WrapKey needs your permission to listen for keyboard events.\n\n1. Click **Open System Settings**.\n2. Find **WrapKey** in the list and turn it on.\n3. Return here and click **Relaunch App**.")
+                Text("WarpKey needs your permission to listen for keyboard events.\n\n1. Click **Open System Settings**.\n2. Find **WarpKey** in the list and turn it on.\n3. Return here and click **Relaunch App**.")
                     .font(.callout).foregroundColor(AppTheme.secondaryTextColor(for: colorScheme)).multilineTextAlignment(.center).lineSpacing(5).padding(.horizontal, 40)
             }
             Spacer()
@@ -980,7 +964,7 @@ struct PermissionsAlertView: View {
                     .font(.headline)
                     .fontWeight(.bold)
                 
-                Text("WrapKey's Accessibility permissions were revoked. To prevent system instability, shortcut monitoring has been stopped. Please re-grant permissions and relaunch the app.")
+                Text("WarpKey's Accessibility permissions were revoked. To prevent system instability, shortcut monitoring has been stopped. Please re-grant permissions and relaunch the app.")
                     .font(.callout)
                     .multilineTextAlignment(.center)
                     .foregroundColor(AppTheme.secondaryTextColor(for: colorScheme))
@@ -1028,7 +1012,7 @@ struct WelcomePage: View {
 
     @State private var isShowingContent = false
     private let donationURL = URL(string: "https://www.patreon.com/MusaMatini")!
-    private let githubURL = URL(string: "https://github.com/musamatini/WrapKey")!
+    private let githubURL = URL(string: "https://github.com/musamatini/WarpKey")!
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1036,7 +1020,7 @@ struct WelcomePage: View {
             VStack(spacing: 35) {
                 VStack(spacing: 15) {
                     Image(systemName: "sparkles").font(.system(size: 50, weight: .bold)).symbolRenderingMode(.monochrome).foregroundStyle(AppTheme.accentColor1(for: colorScheme, theme: settings.appTheme))
-                    Text("Welcome to WrapKey").font(.system(size: 32, weight: .bold, design: .rounded))
+                    Text("Welcome to WarpKey").font(.system(size: 32, weight: .bold, design: .rounded))
                 }.opacity(isShowingContent ? 1 : 0).animation(.easeInOut(duration: 0.7), value: isShowingContent)
                 
                 VStack(alignment: .leading, spacing: 25) {
@@ -1374,22 +1358,32 @@ struct ShortcutRecordingView: View {
                     .buttonStyle(PillButtonStyle())
                     .keyboardShortcut(.cancelAction)
 
-                Button("Blank") { manager.clearRecordedShortcut() }
-                    .buttonStyle(.plain)
-                    .fontWeight(.semibold).frame(maxWidth: .infinity).padding(10)
-                    .foregroundColor(AppTheme.adaptiveTextColor(on: AppTheme.accentColor1(for: colorScheme, theme: settings.appTheme)))
-                    .background(AppTheme.accentColor1(for: colorScheme, theme: settings.appTheme).opacity(0.8)).cornerRadius(AppTheme.cornerRadius)
-                    .opacity(isRecordingForAppAssigning ? 0 : 1)
-                    .disabled(isRecordingForAppAssigning)
-                    .keyboardShortcut("b", modifiers: [])
+                Button(action: { manager.clearRecordedShortcut() }) {
+                    Text("Blank")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding(10)
+                        .foregroundColor(AppTheme.adaptiveTextColor(on: AppTheme.accentColor1(for: colorScheme, theme: settings.appTheme)))
+                        .background(AppTheme.accentColor1(for: colorScheme, theme: settings.appTheme).opacity(0.8))
+                        .cornerRadius(AppTheme.cornerRadius)
+                }
+                .buttonStyle(.plain)
+                .opacity(isRecordingForAppAssigning ? 0 : 1)
+                .disabled(isRecordingForAppAssigning)
+                .keyboardShortcut("b", modifiers: [])
 
-                Button("Done") { manager.saveRecordedShortcut() }
-                    .buttonStyle(.plain)
-                    .fontWeight(.semibold).frame(maxWidth: .infinity).padding(10)
-                    .foregroundColor(AppTheme.adaptiveTextColor(on: AppTheme.accentColor2(for: colorScheme, theme: settings.appTheme)))
-                    .background(AppTheme.accentColor2(for: colorScheme, theme: settings.appTheme)).cornerRadius(AppTheme.cornerRadius)
-                    .disabled(manager.recordedKeys.isEmpty)
-                    .keyboardShortcut(.defaultAction)
+                Button(action: { manager.saveRecordedShortcut() }) {
+                    Text("Done")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding(10)
+                        .foregroundColor(AppTheme.adaptiveTextColor(on: AppTheme.accentColor2(for: colorScheme, theme: settings.appTheme)))
+                        .background(AppTheme.accentColor2(for: colorScheme, theme: settings.appTheme))
+                        .cornerRadius(AppTheme.cornerRadius)
+                }
+                .buttonStyle(.plain)
+                .disabled(manager.recordedKeys.isEmpty)
+                .keyboardShortcut(.defaultAction)
             }
         }
         .padding(30)
@@ -2215,7 +2209,7 @@ struct FooterView: View {
                 Button(action: { NSApplication.shared.terminate(nil) }) {
                     HStack {
                         KeyboardHint(key: "⌘Q")
-                        Text("Quit WrapKey")
+                        Text("Quit WarpKey")
                     }
                 }
                 .keyboardShortcut("q", modifiers: .command)

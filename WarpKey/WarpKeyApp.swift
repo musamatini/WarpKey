@@ -5,13 +5,6 @@ import AppKit
 import Sparkle
 import Combine
 
-// RootView.swift
-
-import SwiftUI
-import AppKit
-import Sparkle
-import Combine
-
 struct RootView: View {
     @ObservedObject var settings: SettingsManager
     let appDelegate: AppDelegate
@@ -87,10 +80,6 @@ struct AppCommands: Commands {
 
     var body: some Commands {
         CommandGroup(replacing: .appSettings) {
-            Button("Settings...") {
-                showAppSettings()
-            }
-            .keyboardShortcut(",", modifiers: .command)
         }
     }
 }

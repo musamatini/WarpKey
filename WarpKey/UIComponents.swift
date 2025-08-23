@@ -113,7 +113,7 @@ struct HoverableTruncatedText: View {
                         .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
                         .padding(12)
                 }
-                .frame(maxWidth: 450, maxHeight: 200)
+                .frame(maxWidth: 450, maxHeight: 400)
                 .background(BlurredBackgroundView())
             }
     }
@@ -204,34 +204,32 @@ struct CustomSegmentedPicker<T: Hashable & CaseIterable & RawRepresentable>: Vie
                 let accentColor = AppTheme.accentColor1(for: colorScheme, theme: settings.appTheme)
                 let key = (option.rawValue.first?.lowercased()) ?? ""
 
-                Button(action: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8, blendDuration: 0.5)) {
-                        selection = option
+                HStack(spacing: 4) {
+                    Text(option.rawValue)
+                    if showKeyboardHints {
+                        KeyboardHint(key: key.uppercased())
                     }
-                }) {
-                    HStack(spacing: 4) {
-                        Text(option.rawValue)
-                        if showKeyboardHints {
-                            KeyboardHint(key: key.uppercased())
-                        }
-                    }
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .frame(maxWidth: .infinity)
-                    .foregroundColor(isSelected ? AppTheme.adaptiveTextColor(on: accentColor) : AppTheme.secondaryTextColor(for: colorScheme))
-                    .background {
-                        ZStack {
-                            if isSelected {
-                                RoundedRectangle(cornerRadius: AppTheme.cornerRadius - containerPadding, style: .continuous)
-                                    .fill(accentColor)
-                                    .matchedGeometryEffect(id: "picker-highlight", in: namespace)
-                            }
+                }
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .frame(maxWidth: .infinity)
+                .foregroundColor(isSelected ? AppTheme.adaptiveTextColor(on: accentColor) : AppTheme.secondaryTextColor(for: colorScheme))
+                .background {
+                    ZStack {
+                        if isSelected {
+                            RoundedRectangle(cornerRadius: AppTheme.cornerRadius - containerPadding, style: .continuous)
+                                .fill(accentColor)
+                                .matchedGeometryEffect(id: "picker-highlight", in: namespace)
                         }
                     }
                 }
-                .buttonStyle(.plain)
-                .contentShape(Rectangle())
+                .contentShape(Rectangle()) 
+                .onTapGesture {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8, blendDuration: 0.5)) {
+                        selection = option
+                    }
+                }
                 .if(showKeyboardHints) { view in
                     view.keyboardShortcut(KeyEquivalent(Character(key)), modifiers: [])
                 }
