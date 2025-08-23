@@ -12,6 +12,7 @@ enum ColorSchemeSetting: String, Codable, CaseIterable {
 
 enum ShortcutCategory: String, CaseIterable, Codable, Hashable, Identifiable {
     case app = "Apps"
+    case snippet = "Snippets"
     case shortcut = "Shortcuts"
     case url = "URLs"
     case file = "Files & Folders"
@@ -22,6 +23,7 @@ enum ShortcutCategory: String, CaseIterable, Codable, Hashable, Identifiable {
     var systemImage: String {
         switch self {
         case .app: "square.grid.2x2.fill"
+        case .snippet: "doc.text.fill"
         case .url: "globe"
         case .file: "doc"
         case .script: "terminal"

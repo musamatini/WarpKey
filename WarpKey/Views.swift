@@ -65,7 +65,7 @@ struct AppScanner {
 }
 
 enum SheetType: Identifiable, Equatable {
-    case addApp, addShortcut, addURL, addScript
+    case addApp, addShortcut, addURL, addScript, addSnippet
     case edit(assignment: Assignment)
 
     var id: String {
@@ -74,6 +74,7 @@ enum SheetType: Identifiable, Equatable {
         case .addShortcut: "addShortcut"
         case .addURL: "addURL"
         case .addScript: "addScript"
+        case .addSnippet: "addSnippet"
         case .edit(let a): "edit-\(a.id)"
         }
     }
@@ -408,13 +409,13 @@ struct MainSettingsView: View {
     private var categorizedAssignments: [ShortcutCategory: [Assignment]] {
         Dictionary(grouping: settings.currentProfile.wrappedValue.assignments) { $0.configuration.target.category }
     }
-    private let categoryOrder: [ShortcutCategory] = [.app, .shortcut, .url, .file, .script]
+    private let categoryOrder: [ShortcutCategory] = [.app, .snippet, .shortcut, .url, .file, .script]
     
     private func editButtonTitle(for target: ShortcutTarget) -> String {
         switch target {
         case .app, .shortcut:
             return "Edit Name"
-        case .url, .script, .file:
+        case .url, .script, .file, .snippet:
             return "Edit Details"
         }
     }
@@ -462,7 +463,7 @@ struct MainSettingsView: View {
             FooterView(onShowHelp: showHelpPage, onShowAppSettings: showAppSettingsPage, onAddFile: handleAddFile, sheetType: $showingSheet)
                 .environmentObject(manager)
         }
-        .customSheet(
+                .customSheet(
             isPresented: Binding(
                 get: { showingSheet != nil },
                 set: { if !$0 { showingSheet = nil } }
@@ -492,6 +493,12 @@ struct MainSettingsView: View {
             case .addScript:
                 AddScriptView(onSave: { name, command, runsInTerminal in
                     let target = ShortcutTarget.script(name: name, command: command, runsInTerminal: runsInTerminal)
+                    manager.startRecording(for: .create(target: target))
+                    showingSheet = nil
+                }, showingSheet: $showingSheet)
+            case .addSnippet:
+                AddSnippetView(onSave: { name, content in
+                    let target = ShortcutTarget.snippet(name: name, content: content)
                     manager.startRecording(for: .create(target: target))
                     showingSheet = nil
                 }, showingSheet: $showingSheet)
@@ -1433,6 +1440,7 @@ struct ShortcutSubtitle: View {
             case .file(_, let path): return path
             case .script(_, let command, _): return command
             case .shortcut(_, let executionName): return executionName
+            case .snippet(_, let content): return content
             }
         }()
         
@@ -1724,6 +1732,8 @@ struct EditView: View {
             EditScriptView(assignmentID: assignment.id, initialName: name, initialCommand: command, initialRunsInTerminal: runsInTerminal, isPresented: $isPresented)
         case .shortcut(let name, let executionName):
             EditShortcutView(assignmentID: assignment.id, initialName: name, executionName: executionName, isPresented: $isPresented)
+        case .snippet(let name, let content):
+            EditSnippetView(assignmentID: assignment.id, initialName: name, initialContent: content, isPresented: $isPresented)
         }
     }
 }
@@ -2147,7 +2157,14 @@ struct FooterView: View {
                                 .padding(6).contentShape(Rectangle())
                         }
                         .keyboardShortcut("5", modifiers: [])
+
+                        Button(action: { sheetType = .addSnippet; isAddMenuPresented = false }) {
+                             HStack { Text("Add Snippet"); Spacer(); KeyboardHint(key: "6") }
+                                .padding(6).contentShape(Rectangle())
+                        }
+                        .keyboardShortcut("6", modifiers: [])
                     }
+                        
                     .padding(4)
                     .buttonStyle(.plain)
                     .frame(minWidth: 200)
@@ -2233,5 +2250,113 @@ extension RecordingMode {
             return true
         }
         return false
+    }
+}
+
+struct AddSnippetView: View {
+    var onSave: (String, String) -> Void
+    @Binding var showingSheet: SheetType?
+    @EnvironmentObject var settings: SettingsManager
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var name = ""
+    @State private var content = ""
+    @FocusState private var isNameFocused: Bool
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Add Snippet Shortcut")
+                .font(.title2.weight(.bold))
+            
+            TextField("Snippet Name (e.g., 'Email Signature')", text: $name)
+                .textFieldStyle(.roundedBorder)
+                .focused($isNameFocused)
+
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: $content)
+                    .font(.system(.body, design: .monospaced))
+                    .scrollContentBackground(.hidden)
+                    .background(AppTheme.pillBackgroundColor(for: colorScheme, theme: settings.appTheme).opacity(0.5))
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
+                    .frame(height: 150)
+                
+                if content.isEmpty {
+                    Text("Enter your snippet content here...")
+                        .foregroundColor(.secondary)
+                        .font(.system(.body, design: .monospaced))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 8)
+                        .allowsHitTesting(false)
+                }
+            }
+            
+            HStack(spacing: 12) {
+                Button("Cancel", role: .cancel) { showingSheet = nil }
+                    .buttonStyle(PillButtonStyle())
+                    .keyboardShortcut(.cancelAction)
+                Spacer()
+                Button("Next") { onSave(name, content) }
+                    .buttonStyle(PillButtonStyle())
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding()
+        .frame(width: 400)
+        .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { isNameFocused = true }
+        }
+    }
+}
+
+struct EditSnippetView: View {
+    let assignmentID: UUID
+    @Binding var isPresented: Bool
+    @EnvironmentObject var settings: SettingsManager
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var name: String
+    @State private var content: String
+    @FocusState private var isFocused: Bool
+
+    init(assignmentID: UUID, initialName: String, initialContent: String, isPresented: Binding<Bool>) {
+        self.assignmentID = assignmentID
+        self._isPresented = isPresented
+        _name = State(initialValue: initialName)
+        _content = State(initialValue: initialContent)
+    }
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Edit Snippet").font(.title2.weight(.bold))
+            TextField("Snippet Name", text: $name).textFieldStyle(.roundedBorder).focused($isFocused)
+            
+            TextEditor(text: $content)
+                .font(.system(.body, design: .monospaced))
+                .scrollContentBackground(.hidden)
+                .background(AppTheme.pillBackgroundColor(for: colorScheme, theme: settings.appTheme).opacity(0.5))
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous))
+                .frame(height: 150)
+
+            HStack(spacing: 12) {
+                Button("Cancel", role: .cancel) { isPresented = false }
+                    .buttonStyle(PillButtonStyle())
+                    .keyboardShortcut(.cancelAction)
+                Spacer()
+                Button("Save") {
+                    let newTarget = ShortcutTarget.snippet(name: name, content: content)
+                    settings.updateAssignmentContent(id: assignmentID, newTarget: newTarget)
+                    isPresented = false
+                }
+                .buttonStyle(PillButtonStyle())
+                .keyboardShortcut(.defaultAction)
+                .disabled(name.isEmpty || content.isEmpty)
+            }
+        }
+        .padding()
+        .frame(width: 400)
+        .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { isFocused = true }
+        }
     }
 }

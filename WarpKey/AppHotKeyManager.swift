@@ -34,6 +34,7 @@ enum ShortcutTarget: Hashable {
     case file(name: String, path: String)
     case script(name: String, command: String, runsInTerminal: Bool)
     case shortcut(name: String, executionName: String)
+    case snippet(name: String, content: String)
 
     var category: ShortcutCategory {
         switch self {
@@ -42,12 +43,13 @@ enum ShortcutTarget: Hashable {
         case .file: .file
         case .script: .script
         case .shortcut: .shortcut
+        case .snippet: .snippet
         }
     }
 
     var displayName: String {
         switch self {
-        case .app(let name, _), .url(let name, _), .file(let name, _), .script(let name, _, _), .shortcut(let name, _):
+        case .app(let name, _), .url(let name, _), .file(let name, _), .script(let name, _, _), .shortcut(let name, _), .snippet(let name, _):
             return name
         }
     }
@@ -101,11 +103,14 @@ enum ShortcutTarget: Hashable {
             
         case .shortcut(let name, _):
             image = generateShortcutIcon(forName: name, size: size)
+            
+        case .snippet:
+            image = NSImage(systemSymbolName: "doc.text.fill", accessibilityDescription: "Snippet")
         }
         
         image?.size = size
         
-        if self.category == .url || self.category == .script {
+        if self.category == .url || self.category == .script || self.category == .snippet {
             image?.isTemplate = true
         }
         
@@ -119,7 +124,7 @@ extension ShortcutTarget: Codable {
     }
     
     enum PayloadKeys: String, CodingKey {
-        case name, bundleId, address, path, command, runsInTerminal, executionName
+        case name, bundleId, address, path, command, runsInTerminal, executionName, content
     }
 
     init(from decoder: Decoder) throws {
@@ -138,6 +143,8 @@ extension ShortcutTarget: Codable {
             self = .script(name: try payload.decode(String.self, forKey: .name), command: try payload.decode(String.self, forKey: .command), runsInTerminal: try payload.decode(Bool.self, forKey: .runsInTerminal))
         case .shortcut:
             self = .shortcut(name: try payload.decode(String.self, forKey: .name), executionName: try payload.decode(String.self, forKey: .executionName))
+        case .snippet:
+            self = .snippet(name: try payload.decode(String.self, forKey: .name), content: try payload.decode(String.self, forKey: .content))
         }
     }
 
@@ -163,6 +170,9 @@ extension ShortcutTarget: Codable {
             try payload.encode(name, forKey: .name)
             try payload.encode(command, forKey: .command)
             try payload.encode(runsInTerminal, forKey: .runsInTerminal)
+        case .snippet(let name, let content):
+            try payload.encode(name, forKey: .name)
+            try payload.encode(content, forKey: .content)
         }
     }
 }
@@ -646,7 +656,33 @@ class AppHotKeyManager: ObservableObject {
         
         return true
     }
-
+    
+    private func pasteSnippet(_ content: String) {
+        let pasteboard = NSPasteboard.general
+        let originalContent = pasteboard.string(forType: .string)
+        
+        pasteboard.clearContents()
+        pasteboard.setString(content, forType: .string)
+        
+        let source = CGEventSource(stateID: .hidSystemState)
+        let keyVDown = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true)
+        let keyVUp = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false)
+        
+        keyVDown?.flags = .maskCommand
+        keyVUp?.flags = .maskCommand
+        
+        let loc = CGEventTapLocation.cgSessionEventTap
+        keyVDown?.post(tap: loc)
+        keyVUp?.post(tap: loc)
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            pasteboard.clearContents()
+            if let original = originalContent {
+                pasteboard.setString(original, forType: .string)
+            }
+        }
+    }
+    
     private func handleRecording() {
         DispatchQueue.main.async {
             let currentActiveKeys = self.activeKeys
@@ -801,6 +837,13 @@ class AppHotKeyManager: ObservableObject {
             case .file(_, let path): DispatchQueue.main.async { NSWorkspace.shared.open(URL(fileURLWithPath: path)) }
             case .script(_, let command, let runsInTerminal): DispatchQueue.global(qos: .userInitiated).async { self.runScript(command: command, runsInTerminal: runsInTerminal) }
             case .shortcut(_, let name): DispatchQueue.global(qos: .userInitiated).async { self.runShortcut(name: name) }
+            case .snippet(_, let content):
+                DispatchQueue.main.async {
+                    NSApp.hide(nil)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        self.pasteSnippet(content)
+                    }
+                }
             }
             return true
         }
