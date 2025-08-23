@@ -17,7 +17,7 @@
             ]]>
         </description>
         <enclosure
-              url="https://github.com/musamatini/WarpKey/releases/download/v2.0.1/WarpKey-Universal-Stable-v2.0.1.zip"
+              url="https://github.com/musamatini/WarpKey/releases/download/v2.1.0/WarpKey-Universal-Stable-v2.1.0.zip"
               sparkle:version="17"
               sparkle:shortVersionString="2.1.0"
               length="3425133"
