@@ -9,6 +9,8 @@ import ApplicationServices
 import CoreServices
 import UniformTypeIdentifiers
 
+fileprivate let systemKeyOffset: CGKeyCode = 1000
+
 fileprivate enum InternalShortcutID: String {
     case cheatsheet = "dev.WarpKey.internal.cheatsheet"
     case quickAssign = "dev.WarpKey.internal.quickassign"
@@ -237,17 +239,18 @@ struct ShortcutKey: Codable, Equatable, Hashable, Identifiable {
 
     static func from(keyCode: CGKeyCode, isModifier: Bool, isSystemEvent: Bool) -> ShortcutKey {
         let displayName: String
-        
-        if keyCode == 300 {
+        let lookupKeyCode = isSystemEvent ? (keyCode - systemKeyOffset) : keyCode
+
+        if lookupKeyCode == 300 {
             displayName = "Caps Lock"
         } else if isModifier {
             let names: [CGKeyCode: String] = [
                 55: "Command", 54: "Command", 58: "Option", 61: "Option",
                 56: "Shift", 60: "Shift", 59: "Control", 62: "Control", 63: "Function"
             ]
-            displayName = names[keyCode] ?? "Mod \(keyCode)"
+            displayName = names[lookupKeyCode] ?? "Mod \(lookupKeyCode)"
         } else {
-            displayName = KeyboardLayout.character(for: keyCode, isSystemEvent: isSystemEvent) ?? "Key \(keyCode)"
+            displayName = KeyboardLayout.character(for: lookupKeyCode, isSystemEvent: isSystemEvent) ?? "Key \(lookupKeyCode)"
         }
         return ShortcutKey(keyCode: keyCode, displayName: displayName, isModifier: isModifier, isSystemEvent: isSystemEvent)
     }
@@ -270,7 +273,7 @@ class AppHotKeyManager: ObservableObject {
     @Published var conflictingAssignmentIDs: Set<UUID> = []
     @Published var isCheatsheetConflicting = false
     @Published var isQuickAssignConflicting = false
-
+    
     private var appNameCache: [String: String] = [:]
     private var appIconCache: [String: NSImage] = [:]
     private var activeNormalKeys = Set<CGKeyCode>()
@@ -425,82 +428,82 @@ class AppHotKeyManager: ObservableObject {
             return Unmanaged.passRetained(event)
         }
 
-        let specialSystemKeyCodes: Set<CGKeyCode> = [160, 176, 177, 178]
-        var finalKeyCode: CGKeyCode?
-        var isFunctionKey = false
-        var isKeyDownEvent = false
+        let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
 
-        if type.rawValue == 14 {
-            isFunctionKey = true
-            guard let nsEvent = NSEvent(cgEvent: event), nsEvent.subtype.rawValue == 8 else { return Unmanaged.passUnretained(event) }
-            finalKeyCode = CGKeyCode((nsEvent.data1 & 0xFFFF0000) >> 16)
-            let keyState = (nsEvent.data1 & 0x0000FF00) >> 8
-            isKeyDownEvent = (keyState == 0x0A)
-        } else {
-            finalKeyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
-            if let code = finalKeyCode, specialSystemKeyCodes.contains(code) {
-                isFunctionKey = true
-            }
-            isKeyDownEvent = (type == .keyDown)
-        }
-        
-        guard let code = finalKeyCode else { return Unmanaged.passUnretained(event) }
-        
-        var processedKeyCode = code
-        var shouldSuppressOriginalEvent = false
-        
-        if code == 4 || code == 57 {
-            let displayName = KeyboardLayout.character(for: code, isSystemEvent: isFunctionKey) ?? "Key \(code)"
+        if type == .flagsChanged && keyCode == 57 { // CAPS LOCK
+            let logicalCapsLockKey: CGKeyCode = 300
+            let capsOn = event.flags.contains(.maskAlphaShift)
             
-            if displayName == "Key 4" {
-                processedKeyCode = 300
-                shouldSuppressOriginalEvent = true
+            if recordingState != nil {
+                DispatchQueue.main.async {
+                    let capsKey = ShortcutKey.from(keyCode: logicalCapsLockKey, isModifier: false, isSystemEvent: false)
+                    if self.hasCapturedChord { self.recordedKeys = []; self.hasCapturedChord = false }
+                    if !self.recordedKeys.contains(where: { $0.id == capsKey.id }) { self.recordedKeys.append(capsKey); self.recordedKeys.sort { $0.isModifier && !$1.isModifier } }
+                }
+                return nil
             }
+
+            let keyCombinationForShortcut = self.activeKeys.union([logicalCapsLockKey])
+            let downResult = handleKeyDown(for: logicalCapsLockKey, with: keyCombinationForShortcut)
+            if capsOn { activeNormalKeys.insert(logicalCapsLockKey) } else { activeNormalKeys.remove(logicalCapsLockKey) }
+            let upResult = handleKeyUp(for: logicalCapsLockKey, with: keyCombinationForShortcut)
+
+            if downResult || upResult { return nil }
+            else { return Unmanaged.passUnretained(event) }
         }
         
         let previousActiveKeys = activeKeys
-
-        if isKeyDownEvent {
-            if isFunctionKey { activeSystemKeys.insert(processedKeyCode) } else { activeNormalKeys.insert(processedKeyCode) }
-        } else if type == .keyUp || (type.rawValue == 14 && !isKeyDownEvent) {
-            activeSystemKeys.remove(processedKeyCode)
-            activeNormalKeys.remove(processedKeyCode)
-        } else if type == .flagsChanged {
+        
+        switch type {
+        case .keyDown:
+            activeNormalKeys.insert(keyCode)
+        case .keyUp:
+            activeNormalKeys.remove(keyCode)
+        case .flagsChanged:
             let flags = event.flags
-            if [55, 54].contains(processedKeyCode) { if flags.contains(.maskCommand) { activeNormalKeys.insert(processedKeyCode) } else { activeNormalKeys.remove(processedKeyCode) } }
-            else if [58, 61].contains(processedKeyCode) { if flags.contains(.maskAlternate) { activeNormalKeys.insert(processedKeyCode) } else { activeNormalKeys.remove(processedKeyCode) } }
-            else if [56, 60].contains(processedKeyCode) { if flags.contains(.maskShift) { activeNormalKeys.insert(processedKeyCode) } else { activeNormalKeys.remove(processedKeyCode) } }
-            else if [59, 62].contains(processedKeyCode) { if flags.contains(.maskControl) { activeNormalKeys.insert(processedKeyCode) } else { activeNormalKeys.remove(processedKeyCode) } }
-            else if processedKeyCode == 63 { if flags.contains(.maskSecondaryFn) { activeNormalKeys.insert(processedKeyCode) } else { activeNormalKeys.remove(processedKeyCode) } }
+            if [55, 54].contains(keyCode) { if flags.contains(.maskCommand) { activeNormalKeys.insert(keyCode) } else { activeNormalKeys.remove(keyCode) } }
+            else if [58, 61].contains(keyCode) { if flags.contains(.maskAlternate) { activeNormalKeys.insert(keyCode) } else { activeNormalKeys.remove(keyCode) } }
+            else if [56, 60].contains(keyCode) { if flags.contains(.maskShift) { activeNormalKeys.insert(keyCode) } else { activeNormalKeys.remove(keyCode) } }
+            else if [59, 62].contains(keyCode) { if flags.contains(.maskControl) { activeNormalKeys.insert(keyCode) } else { activeNormalKeys.remove(keyCode) } }
+            else if keyCode == 63 { if flags.contains(.maskSecondaryFn) { activeNormalKeys.insert(keyCode) } else { activeNormalKeys.remove(keyCode) } }
+        default:
+            // This case handles special keys like brightness, volume, etc.
+            if type.rawValue == 14, let nsEvent = NSEvent(cgEvent: event), nsEvent.subtype.rawValue == 8 {
+                let finalKeyCode = CGKeyCode((nsEvent.data1 & 0xFFFF0000) >> 16)
+                if finalKeyCode == 4 { return nil }
+                
+                let mappedKeyCode = finalKeyCode + systemKeyOffset
+                let keyState = (nsEvent.data1 & 0x0000FF00) >> 8 // 0x0A is key down, 0x0B is key up
+
+                if keyState == 0x0A { // System Key Down
+                    activeSystemKeys.insert(mappedKeyCode)
+                    if handleKeyDown(for: mappedKeyCode, with: activeKeys) {
+                        return nil
+                    }
+                } else { // System Key Up
+                    let previousActiveKeys = self.activeKeys
+                    activeSystemKeys.remove(mappedKeyCode)
+                    if handleKeyUp(for: mappedKeyCode, with: previousActiveKeys) {
+                        return nil
+                    }
+                }
+            }
         }
         
-        if let state = recordingState {
+        if recordingState != nil {
             let isFrontmost = NSWorkspace.shared.frontmostApplication?.bundleIdentifier == Bundle.main.bundleIdentifier
-            
-            let requiresFrontmost: Bool
-            switch state {
-            case .create, .edit, .cheatsheet, .quickAssign: requiresFrontmost = true
-            case .appAssigning: requiresFrontmost = false
-            }
-            
-            if !requiresFrontmost || isFrontmost {
-                handleRecording()
+            if case .appAssigning = recordingState { handleRecording(); return nil }
+            else if isFrontmost { handleRecording(); return nil }
+        }
+        
+        if type == .keyDown {
+            if handleKeyDown(for: keyCode, with: activeKeys) {
                 return nil
             }
-        }
-
-        var shouldSuppressEvent = false
-        let isDown = activeKeys.count > previousActiveKeys.count
-        let isUp = activeKeys.count < previousActiveKeys.count
-
-        if isDown {
-            shouldSuppressEvent = handleKeyDown(for: 0, with: activeKeys)
-        } else if isUp {
-            shouldSuppressEvent = handleKeyUp(for: 0, with: previousActiveKeys)
-        }
-
-        if shouldSuppressEvent || shouldSuppressOriginalEvent {
-            return nil
+        } else if type == .keyUp {
+            if handleKeyUp(for: keyCode, with: previousActiveKeys) {
+                return nil
+            }
         }
 
         return Unmanaged.passUnretained(event)
@@ -540,29 +543,34 @@ class AppHotKeyManager: ObservableObject {
             return true
         }
 
-        guard let assignments = hotkeyCache[comboId], !assignments.isEmpty else { return false }
-        
-        if pressTracker[comboId]?.holdTimer != nil || pressTracker[comboId]?.holdActionFired == true {
-            return true
+        guard let assignments = hotkeyCache[comboId], !assignments.isEmpty else {
+            return false
         }
         
-        pressTracker[comboId]?.dispatchWorkItem?.cancel()
+        if pressTracker[comboId] != nil {
+            return true
+        }
 
+        var info = PressInfo()
+        
         let holdAssignments = assignments.filter({ $0.trigger == .hold })
         if !holdAssignments.isEmpty {
             let timer = Timer.scheduledTimer(withTimeInterval: holdThreshold, repeats: false) { [weak self] _ in
                 guard let self = self, self.activeKeys == keyCombination else {
-                    self?.pressTracker[comboId]?.holdActionFired = false
+                    if let self { self.pressTracker[comboId]?.holdActionFired = false }
                     return
                 }
                 
                 for assignment in holdAssignments {
                     _ = self.handleActivation(assignment: assignment)
                 }
-                self.pressTracker[comboId, default: PressInfo()].holdActionFired = true
+                self.pressTracker[comboId]?.holdActionFired = true
             }
-            pressTracker[comboId, default: PressInfo()].holdTimer = timer
+            info.holdTimer = timer
         }
+        
+        pressTracker[comboId] = info
+        
         return true
     }
     
@@ -578,17 +586,18 @@ class AppHotKeyManager: ObservableObject {
             return true
         }
 
-        guard let assignments = hotkeyCache[comboId], !assignments.isEmpty else { return false }
+        guard var info = pressTracker[comboId] else {
+            return hotkeyCache[comboId] != nil
+        }
 
-        pressTracker[comboId]?.holdTimer?.invalidate()
-        pressTracker[comboId]?.holdTimer = nil
+        info.holdTimer?.invalidate()
+        info.holdTimer = nil
         
-        if pressTracker[comboId]?.holdActionFired == true {
+        if info.holdActionFired {
             pressTracker[comboId] = nil
             return true
         }
         
-        var info = pressTracker[comboId, default: PressInfo()]
         info.dispatchWorkItem?.cancel()
         
         let now = CACurrentMediaTime()
@@ -600,6 +609,11 @@ class AppHotKeyManager: ObservableObject {
         info.count += 1
         let currentCount = info.count
         info.lastPressTime = now
+        
+        guard let assignments = hotkeyCache[comboId] else {
+            pressTracker[comboId] = nil
+            return false
+        }
                 
         switch currentCount {
         case 1:
@@ -611,7 +625,6 @@ class AppHotKeyManager: ObservableObject {
                 pressTracker[comboId] = nil
                 return true
             }
-            
         case 2:
             let hasTriplePressSibling = assignments.contains { $0.trigger == .triplePress }
             if !hasTriplePressSibling {
@@ -621,14 +634,12 @@ class AppHotKeyManager: ObservableObject {
                 pressTracker[comboId] = nil
                 return true
             }
-            
         case 3:
             if let assignment = assignments.first(where: { $0.trigger == .triplePress }) {
                 _ = self.handleActivation(assignment: assignment)
             }
             pressTracker[comboId] = nil
             return true
-            
         default:
             pressTracker[comboId] = nil
             return true
@@ -694,7 +705,8 @@ class AppHotKeyManager: ObservableObject {
                 }
 
                 let newKeys = currentActiveKeys.map { kc -> ShortcutKey in
-                    ShortcutKey.from(keyCode: kc, isModifier: self.isModifierKeyCode(kc), isSystemEvent: self.activeSystemKeys.contains(kc))
+                    let isSystem = self.activeSystemKeys.contains(kc)
+                    return ShortcutKey.from(keyCode: kc, isModifier: self.isModifierKeyCode(kc), isSystemEvent: isSystem)
                 }.sorted { $0.isModifier && !$1.isModifier }
                 
                 if newKeys.count >= self.recordedKeys.count {
@@ -899,7 +911,6 @@ class AppHotKeyManager: ObservableObject {
                 }
                 
                 if let windowToFocus = WindowFocusManager.findWindow(for: app.processIdentifier) {
-                    // This is a UI-related action, so it must be on the main thread.
                     DispatchQueue.main.async {
                         windowToFocus.focus()
                     }
@@ -925,7 +936,76 @@ class AppHotKeyManager: ObservableObject {
         }
     }
     
+    // MARK: - Finder-specific Logic
+    
+    private func reopenAndActivateFinder() {
+        let source = """
+        tell application "Finder"
+            reopen
+            activate
+        end tell
+        """
+        var error: NSDictionary?
+        if let script = NSAppleScript(source: source) {
+            script.executeAndReturnError(&error)
+            if let err = error {
+                print("AppleScript Error activating Finder: \(err)")
+                NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first?.activate()
+            }
+        }
+    }
+
+    private func handleFinderActivation() {
+        guard let finder = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first else {
+            launchAndActivate(bundleId: "com.apple.finder")
+            return
+        }
+
+        let isFinderFrontmost = NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.apple.finder"
+
+        if !isFinderFrontmost {
+            print("ACTION: Finder is not frontmost. Activating.")
+            reopenAndActivateFinder()
+            return
+        }
+        
+        // --- THE FINAL FIX: Ask for VISIBLE windows ---
+        let windowListScript = "tell application \"Finder\" to get every window whose visible is true"
+        
+        var windowCount = 0
+        if let script = NSAppleScript(source: windowListScript) {
+            var executionError: NSDictionary?
+            let result = script.executeAndReturnError(&executionError)
+
+            if executionError == nil {
+                // The result of `get every window` is a list descriptor. We check its count.
+                windowCount = result.numberOfItems
+            } else {
+                // If the script fails (e.g., permissions), we need a safe fallback.
+                // Since Finder is already frontmost, hiding is the most intuitive action.
+                print("ACTION: Finder is frontmost, but window check failed. Hiding as fallback.")
+                finder.hide()
+                return
+            }
+        }
+        
+        if windowCount > 0 {
+            // Frontmost with visible windows -> Hide it.
+            print("ACTION: Finder is frontmost with \(windowCount) visible window(s). Hiding.")
+            finder.hide()
+        } else {
+            // Frontmost but no visible windows (only the desktop) -> Open a new one.
+            print("ACTION: Finder is frontmost with no visible windows. Reopening.")
+            reopenAndActivateFinder()
+        }
+    }
+
     private func handleAppActivation(bundleId: String, behavior: ShortcutConfiguration.Behavior) {
+        if bundleId == "com.apple.finder" && behavior == .activateOrHide {
+            handleFinderActivation()
+            return
+        }
+        
         if let targetApp = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).first {
             switch behavior {
             case .activateOrHide:
@@ -937,7 +1017,7 @@ class AppHotKeyManager: ObservableObject {
             launchAndActivate(bundleId: bundleId)
         }
     }
-
+    
     private func hotkeyIdentifier(for keys: [ShortcutKey], trigger: ShortcutTriggerType) -> String {
         let sortedKeyCodes = keys.map { String($0.keyCode) }.sorted()
         return sortedKeyCodes.joined(separator: "-") + "-\(trigger.rawValue)"
@@ -1048,3 +1128,4 @@ fileprivate extension ShortcutTarget {
         return nil
     }
 }
+

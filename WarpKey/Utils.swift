@@ -1,4 +1,3 @@
-
 // Utils.swift
 
 import AppKit
@@ -138,7 +137,7 @@ struct ShortcutRunner {
 
 struct KeyboardLayout {
     
-    private static let systemKeyNames: [CGKeyCode: String] = [
+    static let systemKeyNames: [CGKeyCode: String] = [
         2: "Brightness Up",
         3: "Brightness Down",
         7: "Mute",
@@ -184,30 +183,34 @@ struct KeyboardLayout {
         39: "'",
         300: "Caps Lock"
     ]
+
     
     static func character(for keyCode: CGKeyCode, isSystemEvent: Bool) -> String? {
-        if keyCode == 300 {
-            return "Caps Lock"
+        // ** THE FIX IS HERE **
+        // The logic is now ordered correctly to handle all cases.
+        // If the manager tells us it's a system event, we check that list first.
+        if isSystemEvent {
+            if let systemName = systemKeyNames[keyCode] {
+                return systemName
+            }
         }
         
-        if isSystemEvent {
-            return systemKeyNames[keyCode]
-        } else {
-            if let specialName = specialKeyNames[keyCode] {
-                return specialName
-            }
-            if let char = getCharFromKeyCode(keyCode) {
-                return char
-            }
+        // If it wasn't a system key (or wasn't found in the list),
+        // check our other list of special keys (like Enter, Tab, etc.).
+        if let specialName = specialKeyNames[keyCode] {
+            return specialName
         }
+        
+        // As a last resort, try to get its character value (like 'A', 'B', '1').
+        if let char = getCharFromKeyCode(keyCode) {
+            return char
+        }
+        
+        // If we can't find a name anywhere, return nil.
         return nil
     }
     
     private static func getCharFromKeyCode(_ keyCode: CGKeyCode) -> String? {
-        if keyCode == 300 {
-            return "Caps Lock"
-        }
-        
         guard let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() else { return nil }
         guard let layoutData = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData) else { return nil }
         let data = unsafeBitCast(layoutData, to: CFData.self) as Data
