@@ -20,12 +20,12 @@
             ]]>
         </description>
         <enclosure
-              url="https://github.com/musamatini/WarpKey/releases/download/v2.0.3/WarpKey-Universal-Stable-v2.0.3.zip"
+              url="https://github.com/musamatini/WarpKey/releases/download/v2.0.3/WrapKey-Universal-Stable-v2.0.3.zip"
               sparkle:version="18"
               sparkle:shortVersionString="2.0.3"
-              length="3426984"
+              length="3426985"
               type="application/octet-stream"
-              sparkle:edSignature="WwsOha6iOPyKSHfMwlMsV0la0wRZ8oT/w6lajhvz3l+RL6Si/P4UPt9H4woaLMI2s/ANXHpG4iB9EgwLjUJNCg==" />
+              sparkle:edSignature="erChEFTbMn58YUG/dQOFlC4NQRaQmOmbwUBH/3PmPcA+rcR2LZLQJGiWW19YCyb9YN8WqfU/LsmpDR5BGE4CAw==" />
     </item>
     <item>
         <title>Version 2.0.2 - Introducing Snippets!</title>
