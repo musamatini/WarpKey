@@ -1,5 +1,7 @@
 ![Banner](https://github.com/musamatini/WarpKey/blob/main/banner.png)
 
+## 👉 **IF AUTO-UPDATE FAILS WITH A SIGNATURE ERROR, PLEASE [INSTALL THE LATEST RELEASE MANUALLY](https://github.com/musamatini/WarpKey/releases/latest).**
+
 # 🎉 WarpKey: Your Mac's Productivity Power-Up! 🚀
 
 ### The Ultimate macOS Launcher for Your Apps, Files, URLs, Scripts, and More.
