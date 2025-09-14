@@ -6,6 +6,28 @@
     <description>Most recent changes with links to updates.</description>
     <language>en</language>
     <item>
+        <title>Version 2.0.3 - Fixes!</title>
+        <pubDate>Sat, 14 Sep 2008 22:15:00 +0300</pubDate>
+        <description>
+            <![CDATA[
+                <h4> Bug fixes! </h4>
+                    <ul>
+                        <li>Re-wrote the key capturing for the h letter so it works in pinyin and alike inputs when the app is open.</li>
+                        <li>Fixed: when using the hold method for with a key, if the key gets held it writes the letter a bunch of time then excutes shortcut, now it dosent write the letter.</li>
+                        <li>Made the hotkeys get smaller in the shortcut recorder and in the app cards for better looks.</li>
+                        <li>Thanks for all of the supporters!</li>
+                    </ul>
+            ]]>
+        </description>
+        <enclosure
+              url="https://github.com/musamatini/WarpKey/releases/download/v2.0.3/WarpKey-Universal-Stable-v2.0.3.zip"
+              sparkle:version="18"
+              sparkle:shortVersionString="2.0.3"
+              length="3426984"
+              type="application/octet-stream"
+              sparkle:edSignature="tjoXPgTIWkWfMOk1qIuOsWYFhrh8oGk7g1pztJvq1N79J5HMDCfHp2PfoMx3742yBiOWQTkOnMmlQepuqqA+Aw==" />
+    </item>
+    <item>
         <title>Version 2.0.2 - Introducing Snippets!</title>
         <pubDate>Sat, 23 Aug 2025 19:10:00 +0300</pubDate>
         <description>
@@ -17,7 +39,7 @@
             ]]>
         </description>
         <enclosure
-              url="https://github.com/musamatini/WarpKey/releases/download/v2.1.0/WarpKey-Universal-Stable-v2.1.0.zip"
+              url="https://github.com/musamatini/WarpKey/releases/download/v2.0.2/WarpKey-Universal-Stable-v2.0.2.zip"
               sparkle:version="17"
               sparkle:shortVersionString="2.0.2"
               length="3425133"
