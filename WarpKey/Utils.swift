@@ -186,29 +186,32 @@ struct KeyboardLayout {
 
     
     static func character(for keyCode: CGKeyCode, isSystemEvent: Bool) -> String? {
-        // ** THE FIX IS HERE **
-        // The logic is now ordered correctly to handle all cases.
-        // If the manager tells us it's a system event, we check that list first.
+
+        switch keyCode {
+        case 160: return "Mission Control"
+        case 176: return "Dictation/Siri"
+        case 177: return "Spotlight"
+        case 178: return "Focus"
+        default: break
+        }
+
         if isSystemEvent {
             if let systemName = systemKeyNames[keyCode] {
                 return systemName
             }
         }
-        
-        // If it wasn't a system key (or wasn't found in the list),
-        // check our other list of special keys (like Enter, Tab, etc.).
+
         if let specialName = specialKeyNames[keyCode] {
             return specialName
         }
         
-        // As a last resort, try to get its character value (like 'A', 'B', '1').
         if let char = getCharFromKeyCode(keyCode) {
             return char
         }
         
-        // If we can't find a name anywhere, return nil.
         return nil
     }
+
     
     private static func getCharFromKeyCode(_ keyCode: CGKeyCode) -> String? {
         guard let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() else { return nil }

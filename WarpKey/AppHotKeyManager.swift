@@ -430,7 +430,7 @@ class AppHotKeyManager: ObservableObject {
 
         let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
 
-        if type == .flagsChanged && keyCode == 57 { // CAPS LOCK
+        if type == .flagsChanged && keyCode == 57 {
             let logicalCapsLockKey: CGKeyCode = 300
             let capsOn = event.flags.contains(.maskAlphaShift)
             
@@ -467,20 +467,19 @@ class AppHotKeyManager: ObservableObject {
             else if [59, 62].contains(keyCode) { if flags.contains(.maskControl) { activeNormalKeys.insert(keyCode) } else { activeNormalKeys.remove(keyCode) } }
             else if keyCode == 63 { if flags.contains(.maskSecondaryFn) { activeNormalKeys.insert(keyCode) } else { activeNormalKeys.remove(keyCode) } }
         default:
-            // This case handles special keys like brightness, volume, etc.
             if type.rawValue == 14, let nsEvent = NSEvent(cgEvent: event), nsEvent.subtype.rawValue == 8 {
                 let finalKeyCode = CGKeyCode((nsEvent.data1 & 0xFFFF0000) >> 16)
                 if finalKeyCode == 4 { return nil }
                 
                 let mappedKeyCode = finalKeyCode + systemKeyOffset
-                let keyState = (nsEvent.data1 & 0x0000FF00) >> 8 // 0x0A is key down, 0x0B is key up
+                let keyState = (nsEvent.data1 & 0x0000FF00) >> 8
 
-                if keyState == 0x0A { // System Key Down
+                if keyState == 0x0A {
                     activeSystemKeys.insert(mappedKeyCode)
                     if handleKeyDown(for: mappedKeyCode, with: activeKeys) {
                         return nil
                     }
-                } else { // System Key Up
+                } else {
                     let previousActiveKeys = self.activeKeys
                     activeSystemKeys.remove(mappedKeyCode)
                     if handleKeyUp(for: mappedKeyCode, with: previousActiveKeys) {
@@ -969,7 +968,6 @@ class AppHotKeyManager: ObservableObject {
             return
         }
         
-        // --- THE FINAL FIX: Ask for VISIBLE windows ---
         let windowListScript = "tell application \"Finder\" to get every window whose visible is true"
         
         var windowCount = 0
@@ -978,11 +976,8 @@ class AppHotKeyManager: ObservableObject {
             let result = script.executeAndReturnError(&executionError)
 
             if executionError == nil {
-                // The result of `get every window` is a list descriptor. We check its count.
                 windowCount = result.numberOfItems
             } else {
-                // If the script fails (e.g., permissions), we need a safe fallback.
-                // Since Finder is already frontmost, hiding is the most intuitive action.
                 print("ACTION: Finder is frontmost, but window check failed. Hiding as fallback.")
                 finder.hide()
                 return
@@ -990,11 +985,9 @@ class AppHotKeyManager: ObservableObject {
         }
         
         if windowCount > 0 {
-            // Frontmost with visible windows -> Hide it.
             print("ACTION: Finder is frontmost with \(windowCount) visible window(s). Hiding.")
             finder.hide()
         } else {
-            // Frontmost but no visible windows (only the desktop) -> Open a new one.
             print("ACTION: Finder is frontmost with no visible windows. Reopening.")
             reopenAndActivateFinder()
         }

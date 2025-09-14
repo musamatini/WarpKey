@@ -617,8 +617,7 @@ struct AppSettingsView: View {
                             HStack {
                                 Text("Cheatsheet Hotkey")
                                 Spacer()
-                                Text(manager.shortcutKeyCombinationString(for: settings.cheatsheetShortcut.keys))
-                                            .font(.system(.body, design: .monospaced))
+                                ShortcutTextView(shortcutString: manager.shortcutKeyCombinationString(for: settings.cheatsheetShortcut.keys))
                             }
                         }, cornerRadius: AppTheme.cornerRadius)
                         .overlay(
@@ -812,8 +811,7 @@ struct SpecialShortcutDisplay: View {
                     .font(.system(.body, design: .monospaced).weight(.semibold))
                     .foregroundColor(AppTheme.secondaryTextColor(for: colorScheme))
             }
-            Text(manager.shortcutKeyCombinationString(for: shortcut.keys))
-                .font(.system(.body, design: .monospaced))
+            ShortcutTextView(shortcutString: manager.shortcutKeyCombinationString(for: shortcut.keys))
         }
     }
 }
@@ -888,8 +886,7 @@ struct CheatsheetView: View {
                                                                 .font(.system(.body, design: .monospaced).weight(.semibold))
                                                                 .foregroundColor(AppTheme.secondaryTextColor(for: colorScheme))
                                                         }
-                                                        Text(manager.shortcutKeyCombinationString(for: assignment.shortcut))
-                                                            .font(.system(.body, design: .monospaced).weight(.semibold))
+                                                        ShortcutTextView(shortcutString: manager.shortcutKeyCombinationString(for: assignment.shortcut), weight: .semibold)
                                                     }
                                                 }, cornerRadius: AppTheme.cornerRadius)
                                             }
@@ -1192,6 +1189,32 @@ struct EmptyStateView: View {
     }
 }
 
+// MARK: - FIX: Reusable view to display shortcuts with adaptive font size
+struct ShortcutTextView: View {
+    let shortcutString: String
+    var baseFontSize: CGFloat = 13 // .body is around 13pt
+    var weight: Font.Weight = .regular
+
+    private var fontSize: CGFloat {
+        let length = shortcutString.count
+        if length > 8 {
+            return baseFontSize * 0.75
+        } else if length > 5 {
+            return baseFontSize * 0.9
+        } else {
+            return baseFontSize
+        }
+    }
+
+    var body: some View {
+        Text(shortcutString)
+            .font(.system(size: fontSize, weight: weight, design: .monospaced))
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+    }
+}
+
+
 struct AssignmentRow: View {
     @ObservedObject var manager: AppHotKeyManager
     @EnvironmentObject var settings: SettingsManager
@@ -1233,8 +1256,8 @@ struct AssignmentRow: View {
                                 .font(.system(.body, design: .monospaced).weight(.semibold))
                                 .foregroundColor(AppTheme.secondaryTextColor(for: colorScheme))
                         }
-                        Text(shortcutString)
-                            .font(.system(.body, design: .monospaced).weight(.semibold))
+                        // FIX: Use adaptive text view
+                        ShortcutTextView(shortcutString: shortcutString, weight: .semibold)
                     }
                 }, cornerRadius: AppTheme.cornerRadius)
                 
@@ -1328,21 +1351,20 @@ struct ShortcutRecordingView: View {
             }
             .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
 
+            // FIX: Replaced ForEach with a single adaptive text view
             HStack(spacing: 10) {
                 if manager.recordedKeys.isEmpty {
                     Text("Press any key...")
                         .font(.system(size: 20, weight: .semibold, design: .monospaced))
                         .foregroundColor(AppTheme.secondaryTextColor(for: colorScheme))
                 } else {
-                    ForEach(manager.recordedKeys) { key in
-                        Text(key.symbol)
-                            .font(.system(size: 20, weight: .semibold, design: .monospaced))
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(AppTheme.pillBackgroundColor(for: colorScheme, theme: settings.appTheme))
-                            .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
-                            .cornerRadius(AppTheme.cornerRadius)
-                    }
+                    let shortcutString = manager.shortcutKeyCombinationString(for: manager.recordedKeys)
+                    ShortcutTextView(shortcutString: shortcutString, baseFontSize: 20, weight: .semibold)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(AppTheme.pillBackgroundColor(for: colorScheme, theme: settings.appTheme))
+                        .foregroundColor(AppTheme.primaryTextColor(for: colorScheme))
+                        .cornerRadius(AppTheme.cornerRadius)
                 }
             }
             .frame(minHeight: 40)
