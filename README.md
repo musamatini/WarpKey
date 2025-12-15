@@ -12,7 +12,7 @@
 ![Downloads](https://img.shields.io/github/downloads/musamatini/WarpKey/total?style=flat-square&logo=arrow-down-circle&color=brightgreen)
 ![Stars](https://img.shields.io/github/stars/musamatini/WarpKey?style=flat-square&logo=star&color=gold)
 
-WarpKey isn't just another launcher—it's a THE ULTIMATE LAUNCHER for your Mac. Create simple or complex keyboard shortcuts to launch or run anything you need. It's designed to be blazing-fast, intuitive, and is one of the only switchers that can **instantly jump between apps in different spaces or fullscreen apps.**
+WarpKey isn't just another launcher—it's THE ULTIMATE LAUNCHER for your Mac. Create simple or complex keyboard shortcuts to launch or run anything you need. It's designed to be blazing-fast, intuitive, and is one of the only switchers that can **instantly jump between apps in different spaces or fullscreen apps.**
 
 ![WarpKey Demo GIF](WarpKey.gif)
 
